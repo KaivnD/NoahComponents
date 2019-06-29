@@ -2,7 +2,7 @@
 using System.Drawing;
 using Grasshopper.Kernel;
 
-namespace NoahComponents
+namespace Noah
 {
     public class NoahComponentsInfo : GH_AssemblyInfo
     {
@@ -42,7 +42,7 @@ namespace NoahComponents
             get
             {
                 //Return a string identifying you or your company.
-                return "";
+                return "KaivnD";
             }
         }
         public override string AuthorContact
@@ -50,7 +50,7 @@ namespace NoahComponents
             get
             {
                 //Return a string representing your preferred contact details.
-                return "";
+                return "KaivnD@hotmail.com";
             }
         }
     }
