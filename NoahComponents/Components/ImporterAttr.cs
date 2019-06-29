@@ -64,7 +64,7 @@ namespace Noah.Components
                 GH_Capsule gH_Capsule2 = GH_Capsule.CreateCapsule(m_button, GH_Palette.Black, 3, 0);
                 gH_Capsule2.TextOrientation = GH_Orientation.horizontal_center;
                 gH_Capsule2.Font = GH_FontServer.ConsoleAdjusted;
-                gH_Capsule2.Text = "Import";
+                gH_Capsule2.Text = "Import";//
                 gH_Capsule2.Render(graphics, Color.AliceBlue);
                 gH_Capsule2.Dispose();
             }
