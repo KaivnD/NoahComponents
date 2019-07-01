@@ -36,8 +36,8 @@ namespace Noah.Components
             int num3 = Convert.ToInt32((double)Pivot.Y - 0.5 * (double)size.Height);
             int num4 = Convert.ToInt32((double)Pivot.Y + 0.5 * (double)size.Height);
             Bounds = RectangleF.FromLTRB(num, num3, num2, num4);
-            TextBound = RectangleF.FromLTRB(num + 30, num3, num2, num4);
-            m_button = new RectangleF(Bounds.Left, Bounds.Top, 30, Bounds.Height);
+            TextBound = RectangleF.FromLTRB(num + 60, num3, num2, num4);
+            m_button = new RectangleF(Bounds.Left, Bounds.Top, 60, Bounds.Height);
         }
 
 		public override void ExpireLayout()

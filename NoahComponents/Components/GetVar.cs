@@ -7,11 +7,10 @@ namespace Noah.Components
 {
     public class GetVar : GH_Param<IGH_Goo>
     {
-        public GetVar() : base(new GH_InstanceDescription("取", string.Empty, "获取数据", "Noah", "Utils"))
+        public GetVar() : base(new GH_InstanceDescription("Get", string.Empty, "获取数据", "Noah", "Utils"))
         {
             base.ObjectChanged += ObjectChangedHandler;
         }
-        protected override System.Drawing.Bitmap Icon => Properties.Resources.getvar;
         public override Guid ComponentGuid => new Guid("DD985C7A-B088-4AC4-8DC2-E08545206E5B");
         public override void CreateAttributes()
         {

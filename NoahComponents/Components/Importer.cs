@@ -10,10 +10,11 @@ namespace Noah.Components
 {
     public class Importer : GH_Param<IGH_Goo>
     {
-        public Importer() : base(new GH_InstanceDescription("进口", string.Empty, "进口数据", "Noah", "Utils"))
+        public Importer() : base(new GH_InstanceDescription("Importer", string.Empty, "进口数据", "Noah", "Utils"))
         {
             base.ObjectChanged += ObjectChangedHandler;
         }
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.getvar;
         public override Guid ComponentGuid => new Guid("C7960BD2-930A-4E27-B197-B09C5DD6CD2D");
         public override void CreateAttributes()
         {
@@ -36,14 +37,14 @@ namespace Noah.Components
 
         protected override void OnVolatileDataCollected()
         {
-            m_data.Clear();
             if (SourceCount == 1)
             {
-                m_data.Append(new GH_ObjectWrapper("写" + Sources[0].VolatileData.get_Branch(0)[0]));
+                //m_data.Append(new GH_ObjectWrapper(Sources[0].VolatileData.get_Branch(0)[0]));
             }
             else
             {
-                m_data.Append(new GH_ObjectWrapper("读" + NickName));
+                m_data.Clear();
+                m_data.Append(new GH_ObjectWrapper(NickName));
             }
         }
 
