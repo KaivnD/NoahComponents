@@ -60,6 +60,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Components\Cooker.cs" />
+    <Compile Include="Components\Exporter.cs" />
     <Compile Include="Components\GetVar.cs" />
     <Compile Include="Components\GetVarAttr.cs" />
     <Compile Include="Components\Importer.cs" />
