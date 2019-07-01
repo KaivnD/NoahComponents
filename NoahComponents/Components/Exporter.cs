@@ -68,7 +68,7 @@ namespace Noah.Components
                         m_mode = ExportMode.Rhino;
                         ExpireSolution(recompute: true);
                     }
-                }, enabled: true, (m_mode == ExportMode.Rhino) ? true : false);
+                }, true, m_mode == ExportMode.Rhino);
             toolStripMenuItem.ToolTipText = 
                 "将O端输入的内容写入3DM文件" + Environment.NewLine + "请确保输入的内容为可写入3DM文件的类型";
             ToolStripMenuItem toolStripMenuItem2 = Menu_AppendItem(
@@ -80,7 +80,7 @@ namespace Noah.Components
                     m_mode = ExportMode.DWG;
                     ExpireSolution(recompute: true);
                 }
-            }, enabled: true, (m_mode == ExportMode.DWG) ? true : false);
+            }, true, m_mode == ExportMode.DWG);
                     toolStripMenuItem2.ToolTipText =
                         "将O端输入的内容写入DWG文件" + Environment.NewLine + "请确保输入的内容为可写入DWG文件的类型";
             ToolStripMenuItem toolStripMenuItem3 = Menu_AppendItem(
@@ -92,7 +92,7 @@ namespace Noah.Components
                     m_mode = ExportMode.Excel;
                     ExpireSolution(recompute: true);
                 }
-            }, enabled: true, (m_mode == ExportMode.Excel) ? true : false);
+            }, true, m_mode == ExportMode.Excel);
                     toolStripMenuItem3.ToolTipText =
                         "将O端输入的内容写入Excel文件" + Environment.NewLine + "请确保输入的内容一个列表";
         }
