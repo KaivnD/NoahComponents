@@ -18,7 +18,7 @@ namespace Noah.Components
         protected override void Layout()
         {
             Pivot = GH_Convert.ToPoint(Pivot);
-            Size size = new Size(180, 20);
+            Size size = new Size(150, 18);
             size.Width = Math.Max(size.Width, GH_FontServer.StringWidth(base.Owner.NickName, GH_FontServer.StandardAdjusted) + 20);
             int num = Convert.ToInt32((double)Pivot.X - 0.5 * (double)size.Width);
             int num2 = Convert.ToInt32((double)Pivot.X + 0.5 * (double)size.Width);
@@ -54,7 +54,7 @@ namespace Noah.Components
                 gH_Capsule2.TextOrientation = GH_Orientation.horizontal_center;
                 gH_Capsule2.Font = GH_FontServer.ConsoleAdjusted;
                 gH_Capsule2.Text = "Get";
-                gH_Capsule2.Render(graphics, Color.Black);
+                gH_Capsule2.Render(graphics, Color.LightGray);
                 gH_Capsule2.Dispose();
             }
         }
