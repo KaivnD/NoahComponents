@@ -52,7 +52,7 @@ namespace Noah.Components
             PythonScript script = PythonScript.Create();
             try
             {
-                script.ExecuteScript("import scriptcontext as sc\nV=sc.sticky['NOAH_PROJECT']\nN=sc.sticky['NOAH_GENERATOR']");
+                script.ExecuteScript("import scriptcontext as sc\nV=sc.sticky['NOAH_PROJECT']\nN=int(sc.sticky['NOAH_GENERATOR'])");
                 NOAH_PROJECT = (string)script.GetVariable("V");
                 NOAH_GENERATOR = (int)script.GetVariable("N");
                 if (File.Exists(NOAH_PROJECT))
