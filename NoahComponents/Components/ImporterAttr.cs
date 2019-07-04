@@ -29,7 +29,7 @@ namespace Noah.Components
 		protected override void Layout()
 		{
             Pivot = GH_Convert.ToPoint(Pivot);
-            Size size = new Size(160, 20);
+            Size size = new Size(160, 18);
             size.Width = Math.Max(size.Width, GH_FontServer.StringWidth(base.Owner.NickName, GH_FontServer.StandardAdjusted) + 20);
             int num = Convert.ToInt32((double)Pivot.X - 0.5 * (double)size.Width);
             int num2 = Convert.ToInt32((double)Pivot.X + 0.5 * (double)size.Width);

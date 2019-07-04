@@ -6,6 +6,7 @@ using Rhino.Runtime;
 using Newtonsoft.Json;
 using System.Xml;
 using Formatting = Newtonsoft.Json.Formatting;
+using Newtonsoft.Json.Linq;
 
 namespace Noah.Components
 {
@@ -13,30 +14,15 @@ namespace Noah.Components
     {
         private string NOAH_PROJECT = "";
         private int NOAH_GENERATOR = 0;
-        private XmlDocument ProjectInfo = null;
+        private JObject ProjectInfo = null;
         public Importer() : base(new GH_InstanceDescription("Importer", string.Empty, "进口数据", "Noah", "Utils"))
         {
             base.ObjectChanged += ObjectChangedHandler;
-            PythonScript script = PythonScript.Create();
-            try
-            {
-                script.ExecuteScript("import scriptcontext as sc\nV=sc.sticky['NOAH_PROJECT']\nN=sc.sticky['NOAH_GENERATOR']");
-                NOAH_PROJECT = (string)script.GetVariable("V");
-                NOAH_GENERATOR = (int)script.GetVariable("N");
-                if (File.Exists(NOAH_PROJECT))
-                {
-                    GH_FileWatcher.CreateFileWatcher(NOAH_PROJECT, GH_FileWatcherEvents.All, new GH_FileWatcher.FileChangedSimple(ProjectFileChanged));
-                    ProjectInfo = JsonConvert.DeserializeXmlNode(File.ReadAllText(NOAH_PROJECT));
-                }
-            } catch
-            {
-
-            }
         }
 
         private void ProjectFileChanged(string filename)
         {
-            ProjectInfo = JsonConvert.DeserializeXmlNode(File.ReadAllText(NOAH_PROJECT));
+            ProjectInfo = JObject.Parse(File.ReadAllText(NOAH_PROJECT));
             ExpireSolution(true);
         }
 
@@ -61,18 +47,40 @@ namespace Noah.Components
             ExpireSolution(true);
         }
 
+        public override void AddedToDocument(GH_Document document)
+        {
+            PythonScript script = PythonScript.Create();
+            try
+            {
+                script.ExecuteScript("import scriptcontext as sc\nV=sc.sticky['NOAH_PROJECT']\nN=sc.sticky['NOAH_GENERATOR']");
+                NOAH_PROJECT = (string)script.GetVariable("V");
+                NOAH_GENERATOR = (int)script.GetVariable("N");
+                if (File.Exists(NOAH_PROJECT))
+                {
+                    GH_FileWatcher.CreateFileWatcher(NOAH_PROJECT, GH_FileWatcherEvents.All, new GH_FileWatcher.FileChangedSimple(ProjectFileChanged));
+                    ProjectInfo = JObject.Parse(File.ReadAllText(NOAH_PROJECT));
+                }
+            }
+            catch
+            {
+
+            }
+        }
+
         protected override void OnVolatileDataCollected()
         {            
             m_data.Clear();
             if (ProjectInfo != null)
             {
-                XmlNodeList inputs = ProjectInfo.GetElementsByTagName("generators").Item(NOAH_GENERATOR).SelectNodes(@"input");
+                JArray generators = JArray.Parse(ProjectInfo["generators"].ToString());
+                var generator = generators[NOAH_GENERATOR];
                 string value = null;
-                foreach (XmlNode input in inputs)
+                JArray inputs = (JArray)generator["input"];
+                for (int i = 0; i < inputs.Count; i++)
                 {
-                    if (input.SelectSingleNode(@"name").InnerText == NickName)
+                    if (inputs[i]["name"].ToString() == NickName)
                     {
-                        value = input.SelectSingleNode(@"value").InnerText;
+                        value = inputs[i]["value"].ToString();
                         break;
                     }
                 }
@@ -93,15 +101,21 @@ namespace Noah.Components
                 }
                 if (SourceCount == 1)
                 {
-                    foreach (XmlNode input in inputs)
+                    int inputIdx = -1;
+                    for (int i = 0; i < inputs.Count; i++)
                     {
-                        if (input.SelectSingleNode(@"name").InnerText == NickName)
+                        if (inputs[i]["name"].ToString() == NickName)
                         {
-                            input.SelectSingleNode(@"value").InnerText = Sources[0].VolatileData.get_Branch(0)[0].ToString();
+                            inputIdx = i;
                             break;
                         }
                     }
-                    File.WriteAllText(NOAH_PROJECT, JsonConvert.SerializeXmlNode(ProjectInfo, Formatting.Indented, false));
+                    if (inputIdx >= 0)
+                    {
+                        ProjectInfo["generators"][NOAH_GENERATOR]["input"][inputIdx]["value"] = Sources[0].VolatileData.get_Branch(0)[0].ToString();
+                        File.WriteAllText(NOAH_PROJECT, JsonConvert.SerializeObject(ProjectInfo, Formatting.Indented));
+                    }
+                    Sources[0].NickName = NickName;
                 }
             } else m_data.Append(null);
         }
