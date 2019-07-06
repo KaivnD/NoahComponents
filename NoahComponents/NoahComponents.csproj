@@ -85,7 +85,6 @@
     <Compile Include="Components\ImporterAttr.cs" />
     <Compile Include="Components\Lighter.cs" />
     <Compile Include="Components\ReadExcel.cs" />
-    <Compile Include="Components\SetGeometryAttr.cs" />
     <Compile Include="Components\SetVal.cs" />
     <Compile Include="NoahComponentsInfo.cs" />
     <Compile Include="NoahComponentsLoader.cs" />
@@ -117,9 +116,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\setvar.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Resources\excel.png" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\table.png" />
