@@ -2,6 +2,8 @@
 using System.Drawing;
 using System.Windows.Forms;
 using Grasshopper.Kernel;
+using Rhino.DocObjects;
+using Rhino.Geometry;
 
 namespace Noah.Components
 {
@@ -27,8 +29,10 @@ namespace Noah.Components
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddGenericParameter("Object", "O", "需要出口的内容", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Object", "E", "需要出口的内容", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Index", "X", "对应Noah包输出的序号，从0起", GH_ParamAccess.item);
             pManager[0].Optional = true;
+            pManager[1].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -55,6 +59,38 @@ namespace Noah.Components
                         break;
                 }
             }
+        }
+
+        private void writeRhino3dm (string filePath, GeometryBase G, ObjectAttributes att)
+        {
+            Rhino.FileIO.File3dm f = new Rhino.FileIO.File3dm();
+            switch (G.ObjectType)
+            {
+                case ObjectType.Brep:
+                    f.Objects.AddBrep(G as Brep, att);
+                    break;
+                case ObjectType.Curve:
+                    f.Objects.AddCurve(G as Curve, att);
+                    break;
+                case ObjectType.Point:
+                    f.Objects.AddPoint((G as Rhino.Geometry.Point).Location, att);
+                    break;
+                case ObjectType.Surface:
+                    f.Objects.AddSurface(G as Surface, att);
+                    break;
+                case ObjectType.Mesh:
+                    f.Objects.AddMesh(G as Mesh, att);
+                    break;
+                case ObjectType.PointSet:
+                    f.Objects.AddPointCloud(G as PointCloud, att); //This is a speculative entry
+                    break;
+                default:
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "不能识别的物体: " + G.GetType().FullName);
+                    break;
+            }
+
+            f.Write(filePath, 5);
+            f.Dispose();
         }
 
         protected override void AppendAdditionalComponentMenuItems(ToolStripDropDown menu)
