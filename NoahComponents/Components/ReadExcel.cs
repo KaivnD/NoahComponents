@@ -25,7 +25,6 @@ namespace Noah.Components
         {
             Param_FilePath param_FilePath = new Param_FilePath();
             param_FilePath.FileFilter = "Excel files (*.xlsx)|*.xlsx|Excel files (*.xls)|*.xls";
-            param_FilePath.ExpireOnFileEvent = true;
             pManager.AddParameter(param_FilePath, "Excel文件", "E", "被转换的Excel文件路径", GH_ParamAccess.item);
             pManager.AddTextParameter("Sheet", "S", "工作表名称", GH_ParamAccess.item, "Sheet1");
             pManager[1].Optional = true;

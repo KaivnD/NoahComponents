@@ -127,6 +127,7 @@ namespace Noah.Utils
                             ICell cell = firstRow.GetCell(i);
                             if (cell != null)
                             {
+                                cell.SetCellType(CellType.String);
                                 string cellValue = cell.StringCellValue;
                                 if (cellValue != null)
                                 {
