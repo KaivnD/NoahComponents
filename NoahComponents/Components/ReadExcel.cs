@@ -39,51 +39,48 @@ namespace Noah.Components
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
+            double[] aa = new double[12];
+
             string path = string.Empty;
             string sheet = string.Empty;
             DA.GetData(0, ref path);
             DA.GetData(1, ref sheet);
-            DataTable dt = TestExcelRead(path, sheet);
-            DataTree<IGH_Goo> tree = new DataTree<IGH_Goo>();
-            if (dt == null) return;
-            for (int i = 0; i < dt.Rows.Count; ++i)
-            {
-                for (int j = 0; j < dt.Columns.Count; ++j)
-                {
-                    var value = dt.Rows[i][j];
-                    GH_Number castNumber = null;
-                    GH_String castString = null;
-                    if (GH_Convert.ToGHNumber(value, GH_Conversion.Both, ref castNumber))
-                    {
-                        tree.Add(new GH_ObjectWrapper(castNumber), new GH_Path(i, j));
-                    }
-                    else if (GH_Convert.ToGHString(value, GH_Conversion.Both, ref castString))
-                    {
-                        tree.Add(new GH_ObjectWrapper(castString), new GH_Path(i, j));
-                    }
-                    else tree.Add(null, new GH_Path(i, j));
-                }
-            }
-            DA.SetDataTree(0, tree);
-            DA.SetData(1, dt.Rows.Count);
-            DA.SetData(2, dt.Columns.Count);
-        }
-
-        static DataTable TestExcelRead(string file, string sheet)
-        {
             try
             {
-                using (ExcelReader excelHelper = new ExcelReader(file))
+                using (ExcelReader excelHelper = new ExcelReader(path))
                 {
-                    DataTable dt = excelHelper.ExcelToDataTable(sheet, true);
-                    return dt;
+                    DataTable dt = excelHelper.ExcelToDataTable(sheet, false);
+                    if (dt != null)
+                    {
+                        DataTree<IGH_Goo> tree = new DataTree<IGH_Goo>();
+                        for (int i = 0; i < dt.Rows.Count; ++i)
+                        {
+                            for (int j = 0; j < dt.Columns.Count; ++j)
+                            {
+                                var value = dt.Rows[i][j];
+                                GH_Number castNumber = null;
+                                GH_String castString = null;
+                                if (GH_Convert.ToGHNumber(value, GH_Conversion.Both, ref castNumber))
+                                {
+                                    tree.Add(new GH_ObjectWrapper(castNumber), new GH_Path(i, j));
+                                }
+                                else if (GH_Convert.ToGHString(value, GH_Conversion.Both, ref castString))
+                                {
+                                    tree.Add(new GH_ObjectWrapper(castString), new GH_Path(i, j));
+                                }
+                                else tree.Add(null, new GH_Path(i, j));
+                            }
+                        }
+                        DA.SetDataTree(0, tree);
+                        DA.SetData(1, dt.Rows.Count);
+                        DA.SetData(2, dt.Columns.Count);
+                    } else AddRuntimeMessage(GH_RuntimeMessageLevel.Error, string.Format("读取{0}失败",path));
                 }
             }
             catch (Exception ex)
-            {       
-                Console.WriteLine("Exception: " + ex.Message);
-                return null;
-            }
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);            
+            }         
         }
     }
 }
