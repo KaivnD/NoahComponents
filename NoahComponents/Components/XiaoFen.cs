@@ -22,7 +22,7 @@ namespace Noah.Components
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddCurveParameter("目标曲线", "C", "指定一条被分割的PolyLine", GH_ParamAccess.item);
-            pManager.AddNumberParameter("面积限制", "L", "当划分用地大于面积限制时自动进行进一步划分", GH_ParamAccess.item, 15000);
+            pManager.AddNumberParameter("面积限制", "L", "当划分用地大于面积限制时进行进一步划分", GH_ParamAccess.item, 15000);
             pManager.AddIntegerParameter("随机因子", "S", "随机因子", GH_ParamAccess.item, 35);
             pManager[1].Optional = true;
             pManager[2].Optional = true;
@@ -41,119 +41,118 @@ namespace Noah.Components
             DA.GetData(0, ref C);
             DA.GetData(1, ref L);
             DA.GetData(2, ref S);
-            dividers.Clear();
-            if (!C.IsClosed) return;
+            if (!C.IsClosed || L < 100) return;
             Polyline pl = null;
             C.TryGetPolyline(out pl);
-            areaLimit = L;
             if (pl != null)
             {
-                generator(new List<Polyline>() { pl }, S);
-                DA.SetDataList(0, dividers);
+                List<Polyline> pls = new List<Polyline>() { pl };
+                double maxArea = AreaMassProperties.Compute(pl.ToPolylineCurve()).Area;
+                List<double> areaList = new List<double>();
+                while (maxArea > L)
+                {                    
+                    Gen(pls, S, out pls, out areaList);
+                    maxArea = areaList.Max();
+                }
+                DA.SetDataList(0, pls);
             }
             else return;
         }
-
-        private double areaLimit { get; set; }
-        private List<Line> dividers = new List<Line>();
-        public List<Polyline> generator(List<Polyline> pls, int seed)
+        private void Gen(List<Polyline> pls, int seed, out List<Polyline> outPls, out List<double> areaLis)
         {
-            double plArea = AreaMassProperties.Compute(pls[pls.Count - 1].ToPolylineCurve()).Area;
-            if (plArea < areaLimit) return pls;
-            else
+            List<Polyline> nextGen = new List<Polyline>();
+            List<double> nextArea = new List<double>();
+            foreach (Polyline pl in pls)
             {
-                List<Polyline> nextGen = new List<Polyline>();
-                foreach (Polyline pl in pls)
+                Point3d[] pts = pl.ToArray();
+                double[] ptsLength = new double[pts.Length - 1];
+                for (int i = 0; i < pts.Length; i++)
                 {
-                    Point3d[] pts = pl.ToArray();
-                    double[] ptsLength = new double[pts.Length - 1];
-                    for (int i = 0; i < pts.Length; i++)
+                    if (i > 0)
                     {
-                        if (i > 0)
-                        {
-                            Point3d prev = pts[i - 1];
-                            ptsLength[i - 1] = pts[i].DistanceTo(prev);
-                        }
+                        Point3d prev = pts[i - 1];
+                        ptsLength[i - 1] = pts[i].DistanceTo(prev);
                     }
-                    int maxIdx = Array.IndexOf(ptsLength, ptsLength.Max());
-                    Line longestLine = new Line(pts[maxIdx], pts[maxIdx + 1]);
-
-                    Random rand = new Random(seed);
-                    double t2 = rand.NextDouble();
-                    double t = Map(t2, 0, 1, 0.2, 0.7);
-                    Vector3d normal = new Vector3d(longestLine.Direction);
-                    Point3d basePoint = longestLine.PointAt(t);
-                    Plane basePlane = new Plane(basePoint, normal);
-                    var intersection = Intersection.CurvePlane(pl.ToPolylineCurve(), basePlane, 0);
-                    Line divider = new Line(intersection[0].PointA, intersection[1].PointA);
-
-                    Vector3d dividerDir = divider.Direction;
-                    Polyline leftPl = new Polyline();
-                    Polyline rightPl = new Polyline();
-                    for (int i = 0; i < pl.Count; i++)
-                    {
-                        if (X2D(divider, pts[i]) == LineSide.Right)
-                        {
-                            rightPl.Add(pts[i]);
-                        }
-                        else if (X2D(divider, pts[i]) == LineSide.Left) leftPl.Add(pts[i]);
-                    }
-
-                    ClockDirection cDir = CalculateClockDirection(pl.ToList());
-                    LineSide cSide = X2D(divider, pl.First);
-                    if (cDir == ClockDirection.Clockwise
-                      && cSide == LineSide.Left)
-                    {
-                        rightPl.Add(divider.From);
-                        rightPl.Add(divider.To);
-                        rightPl.Add(rightPl[0]);
-
-                        int index = pl.IndexOf(rightPl[0]);
-                        leftPl.Insert(index, divider.To);
-                        leftPl.Insert(index + 1, divider.From);
-                    }
-                    else if (cDir == ClockDirection.Counterclockwise
-                    && cSide == LineSide.Left)
-                    {
-                        rightPl.Add(divider.To);
-                        rightPl.Add(divider.From);
-                        rightPl.Add(rightPl[0]);
-
-                        int index = pl.IndexOf(rightPl[0]);
-                        leftPl.Insert(index, divider.From);
-                        leftPl.Insert(index + 1, divider.To);
-                    }
-                    else if (cDir == ClockDirection.Clockwise
-                    && cSide == LineSide.Right)
-                    {
-                        leftPl.Add(divider.To);
-                        leftPl.Add(divider.From);
-                        leftPl.Add(leftPl[0]);
-
-                        int index = pl.IndexOf(leftPl[0]);
-                        rightPl.Insert(index, divider.From);
-                        rightPl.Insert(index + 1, divider.To);
-                    }
-                    else if (cDir == ClockDirection.Counterclockwise
-                    && cSide == LineSide.Right)
-                    {
-                        leftPl.Add(divider.From);
-                        leftPl.Add(divider.To);
-                        leftPl.Add(leftPl[0]);
-
-                        int index = pl.IndexOf(leftPl[0]);
-                        rightPl.Insert(index, divider.To);
-                        rightPl.Insert(index + 1, divider.From);
-                    }
-                    nextGen.Add(leftPl);
-                    nextGen.Add(rightPl);
-                    dividers.Add(divider);
                 }
-                byte[] buffer = Guid.NewGuid().ToByteArray();
-                int iRoot = BitConverter.ToInt32(buffer, 0);
-                Random rdmNum = new Random(iRoot);
-                return generator(nextGen, rdmNum.Next(0, 1000));
+                int maxIdx = Array.IndexOf(ptsLength, ptsLength.Max());
+                Line longestLine = new Line(pts[maxIdx], pts[maxIdx + 1]);
+
+                Random rand = new Random(seed);
+                double t2 = rand.NextDouble();
+                double t = Map(t2, 0, 1, 0.2, 0.7);
+                Vector3d normal = new Vector3d(longestLine.Direction);
+                Point3d basePoint = longestLine.PointAt(t);
+                Plane basePlane = new Plane(basePoint, normal);
+                var intersection = Intersection.CurvePlane(pl.ToPolylineCurve(), basePlane, 0);
+                Line divider = new Line(intersection[0].PointA, intersection[1].PointA);
+                Vector3d dividerDir = divider.Direction;
+                Polyline leftPl = new Polyline();
+                Polyline rightPl = new Polyline();
+                for (int i = 0; i < pl.Count; i++)
+                {
+                    if (X2D(divider, pts[i]) == LineSide.Right)
+                    {
+                        rightPl.Add(pts[i]);
+                    }
+                    else if (X2D(divider, pts[i]) == LineSide.Left) leftPl.Add(pts[i]);
+                }
+
+                ClockDirection cDir = CalculateClockDirection(pl.ToList());
+                LineSide cSide = X2D(divider, pl.First);
+                if (cDir == ClockDirection.Clockwise
+                  && cSide == LineSide.Left)
+                {
+                    rightPl.Add(divider.From);
+                    rightPl.Add(divider.To);
+                    rightPl.Add(rightPl[0]);
+
+                    int index = pl.IndexOf(rightPl[0]);
+                    leftPl.Insert(index, divider.To);
+                    leftPl.Insert(index + 1, divider.From);
+                }
+                else if (cDir == ClockDirection.Counterclockwise
+                && cSide == LineSide.Left)
+                {
+                    rightPl.Add(divider.To);
+                    rightPl.Add(divider.From);
+                    rightPl.Add(rightPl[0]);
+
+                    int index = pl.IndexOf(rightPl[0]);
+                    leftPl.Insert(index, divider.From);
+                    leftPl.Insert(index + 1, divider.To);
+                }
+                else if (cDir == ClockDirection.Clockwise
+                && cSide == LineSide.Right)
+                {
+                    leftPl.Add(divider.To);
+                    leftPl.Add(divider.From);
+                    leftPl.Add(leftPl[0]);
+
+                    int index = pl.IndexOf(leftPl[0]);
+                    rightPl.Insert(index, divider.From);
+                    rightPl.Insert(index + 1, divider.To);
+                }
+                else if (cDir == ClockDirection.Counterclockwise
+                && cSide == LineSide.Right)
+                {
+                    leftPl.Add(divider.From);
+                    leftPl.Add(divider.To);
+                    leftPl.Add(leftPl[0]);
+
+                    int index = pl.IndexOf(leftPl[0]);
+                    rightPl.Insert(index, divider.To);
+                    rightPl.Insert(index + 1, divider.From);
+                }
+                nextGen.Add(leftPl);
+                nextGen.Add(rightPl);
+
+                double areaL = AreaMassProperties.Compute(leftPl.ToPolylineCurve()).Area;
+                double areaR = AreaMassProperties.Compute(leftPl.ToPolylineCurve()).Area;
+                nextArea.Add(areaL);
+                nextArea.Add(areaR);
             }
+            areaLis = nextArea;
+            outPls = nextGen;
         }
 
         public enum ClockDirection
@@ -234,17 +233,17 @@ namespace Noah.Components
         public enum PolygonType
         {
             /// <summary>
-            /// 无.不可计算的多边形(比如多点共线)
+            /// 无
             /// </summary>
             None,
 
             /// <summary>
-            /// 凸多边形
+            /// 凸
             /// </summary>
             Convex,
 
             /// <summary>
-            /// 凹多边形
+            /// 凹
             /// </summary>
             Concave
         }
