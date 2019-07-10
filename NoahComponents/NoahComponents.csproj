@@ -86,6 +86,7 @@
     <Compile Include="Components\Lighter.cs" />
     <Compile Include="Components\ReadExcel.cs" />
     <Compile Include="Components\SetVal.cs" />
+    <Compile Include="Components\XiaoFen.cs" />
     <Compile Include="NoahComponentsInfo.cs" />
     <Compile Include="NoahComponentsLoader.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
