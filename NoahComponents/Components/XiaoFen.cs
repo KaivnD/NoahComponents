@@ -4,8 +4,7 @@ using Rhino.Geometry.Intersect;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using static Noah.Utils.San;
 
 namespace Noah.Components
 {
@@ -31,6 +30,7 @@ namespace Noah.Components
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddCurveParameter("生成的分割线", "D", "生成的分割线列表", GH_ParamAccess.list);
+            pManager.AddCurveParameter("生成的分割线", "E", "生成的分割线列表", GH_ParamAccess.list);
         }
 
         private List<Line> dividers = new List<Line>();
@@ -52,16 +52,19 @@ namespace Noah.Components
                 List<Polyline> pls = new List<Polyline>() { pl };
                 double maxArea = AreaMassProperties.Compute(pl.ToPolylineCurve()).Area;
                 List<double> areaList = new List<double>();
+                Random rand = new Random(S);
                 while (maxArea > L)
                 {                    
-                    Gen(pls, S, out pls, out areaList);
+                    double t = Map(rand.NextDouble(), 0, 1, 0.2, 0.7);
+                    Gen(pls, t, out pls, out areaList);
                     maxArea = areaList.Max();
                 }
                 DA.SetDataList(0, dividers);
+                DA.SetDataList(1, pls);
             }
             else return;
         }
-        private void Gen(List<Polyline> pls, int seed, out List<Polyline> outPls, out List<double> areaLis)
+        private void Gen(List<Polyline> pls, double t, out List<Polyline> outPls, out List<double> areaLis)
         {
             List<Polyline> nextGen = new List<Polyline>();
             List<double> nextArea = new List<double>();
@@ -80,9 +83,7 @@ namespace Noah.Components
                 int maxIdx = Array.IndexOf(ptsLength, ptsLength.Max());
                 Line longestLine = new Line(pts[maxIdx], pts[maxIdx + 1]);
 
-                Random rand = new Random(seed);
-                double t2 = rand.NextDouble();
-                double t = Map(t2, 0, 1, 0.2, 0.7);
+
                 Vector3d normal = new Vector3d(longestLine.Direction);
                 Point3d basePoint = longestLine.PointAt(t);
                 Plane basePlane = new Plane(basePoint, normal);
@@ -114,7 +115,8 @@ namespace Noah.Components
                     leftPl.Insert(index, divider.To);
                     leftPl.Insert(index + 1, divider.From);
                 }
-                else if (cDir == ClockDirection.Counterclockwise
+                else 
+                if (cDir == ClockDirection.Counterclockwise
                 && cSide == LineSide.Left)
                 {
                     rightPl.Add(divider.To);
@@ -125,7 +127,8 @@ namespace Noah.Components
                     leftPl.Insert(index, divider.From);
                     leftPl.Insert(index + 1, divider.To);
                 }
-                else if (cDir == ClockDirection.Clockwise
+                else 
+                if (cDir == ClockDirection.Clockwise
                 && cSide == LineSide.Right)
                 {
                     leftPl.Add(divider.To);
@@ -136,7 +139,8 @@ namespace Noah.Components
                     rightPl.Insert(index, divider.From);
                     rightPl.Insert(index + 1, divider.To);
                 }
-                else if (cDir == ClockDirection.Counterclockwise
+                else 
+                if (cDir == ClockDirection.Counterclockwise
                 && cSide == LineSide.Right)
                 {
                     leftPl.Add(divider.From);
@@ -157,141 +161,6 @@ namespace Noah.Components
             }
             areaLis = nextArea;
             outPls = nextGen;
-        }
-
-        public enum ClockDirection
-        {
-            None,
-            Clockwise,
-            Counterclockwise
-        }
-
-        public enum LineSide
-        {
-            None,
-            Left,
-            Right
-        }
-
-        public double Map(double val, double s1, double e1, double s2, double e2)
-        {
-            return s2 + (e2 - s2) * ((val - s1) / (e1 - s1));
-        }
-
-        public LineSide X2D(Line l, Point3d p)
-        {
-            Vector3d s = new Vector3d(l.From);
-            Vector3d dir = l.Direction;
-            double res = (p.X - s.X) * dir.Y - (p.Y - s.Y) * dir.X;
-            if (res > 0)
-            {
-                return LineSide.Right;
-            }
-            else if (res < 0)
-            {
-                return LineSide.Left;
-            }
-            else return LineSide.None;
-        }
-
-        public static ClockDirection CalculateClockDirection(List<Point3d> points)
-        {
-            int i, j, k;
-            int count = 0;
-            double z;
-            if (points == null || points.Count < 3)
-            {
-                return (0);
-            }
-            int n = points.Count;
-            for (i = 0; i < n; i++)
-            {
-                j = (i + 1) % n;
-                k = (i + 2) % n;
-                z = (points[j].X - points[i].X) * (points[k].Y - points[j].Y);
-                z -= (points[j].Y - points[i].Y) * (points[k].X - points[j].X);
-                if (z < 0)
-                {
-                    count--;
-                }
-                else if (z > 0)
-                {
-                    count++;
-                }
-            }
-            if (count > 0)
-            {
-                return (ClockDirection.Counterclockwise);
-            }
-            else if (count < 0)
-            {
-                return (ClockDirection.Clockwise);
-            }
-            else
-            {
-                return (ClockDirection.None);
-            }
-        }
-
-
-        public enum PolygonType
-        {
-            /// <summary>
-            /// 无
-            /// </summary>
-            None,
-
-            /// <summary>
-            /// 凸
-            /// </summary>
-            Convex,
-
-            /// <summary>
-            /// 凹
-            /// </summary>
-            Concave
-        }
-
-
-        public static PolygonType CalculatePolygonType(List<Point3d> points, bool isYAxixToDown)
-        {
-            int i, j, k;
-            int flag = 0;
-            double z;
-
-            if (points == null || points.Count < 3)
-            {
-                return (0);
-            }
-            int n = points.Count;
-            int yTrans = isYAxixToDown ? (-1) : (1);
-            for (i = 0; i < n; i++)
-            {
-                j = (i + 1) % n;
-                k = (i + 2) % n;
-                z = (points[j].X - points[i].X) * (points[k].Y * yTrans - points[j].Y * yTrans);
-                z -= (points[j].Y * yTrans - points[i].Y * yTrans) * (points[k].X - points[j].X);
-                if (z < 0)
-                {
-                    flag |= 1;
-                }
-                else if (z > 0)
-                {
-                    flag |= 2;
-                }
-                if (flag == 3)
-                {
-                    return (PolygonType.Concave);
-                }
-            }
-            if (flag != 0)
-            {
-                return (PolygonType.Convex);
-            }
-            else
-            {
-                return (PolygonType.None);
-            }
         }
     }
 }
