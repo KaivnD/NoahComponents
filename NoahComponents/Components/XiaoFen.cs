@@ -33,6 +33,8 @@ namespace Noah.Components
             pManager.AddCurveParameter("生成的分割线", "D", "生成的分割线列表", GH_ParamAccess.list);
         }
 
+        private List<Line> dividers = new List<Line>();
+
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             Curve C = null;
@@ -42,6 +44,7 @@ namespace Noah.Components
             DA.GetData(1, ref L);
             DA.GetData(2, ref S);
             if (!C.IsClosed || L < 100) return;
+            dividers.Clear();
             Polyline pl = null;
             C.TryGetPolyline(out pl);
             if (pl != null)
@@ -54,7 +57,7 @@ namespace Noah.Components
                     Gen(pls, S, out pls, out areaList);
                     maxArea = areaList.Max();
                 }
-                DA.SetDataList(0, pls);
+                DA.SetDataList(0, dividers);
             }
             else return;
         }
@@ -85,6 +88,7 @@ namespace Noah.Components
                 Plane basePlane = new Plane(basePoint, normal);
                 var intersection = Intersection.CurvePlane(pl.ToPolylineCurve(), basePlane, 0);
                 Line divider = new Line(intersection[0].PointA, intersection[1].PointA);
+                dividers.Add(divider);
                 Vector3d dividerDir = divider.Direction;
                 Polyline leftPl = new Polyline();
                 Polyline rightPl = new Polyline();
