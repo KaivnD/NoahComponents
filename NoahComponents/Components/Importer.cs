@@ -76,12 +76,30 @@ namespace Noah.Components
                 var generator = generators[NOAH_GENERATOR];
                 string value = null;
                 JArray inputs = (JArray)generator["input"];
-                for (int i = 0; i < inputs.Count; i++)
+
+                if (NickName.StartsWith("@") && NickName.Length >= 3)
                 {
-                    if (inputs[i]["name"].ToString() == NickName)
+                    try
                     {
-                        value = inputs[i]["value"].ToString();
-                        break;
+                        int col = NickName[1].ToString()[0] - 'A';
+                        int row = Convert.ToInt32(NickName.PadLeft(2).Remove(0, 2));
+                        JArray table = (JArray)generator["table"];
+                        JArray tableRow = (JArray)table[row];
+                        value = tableRow[col].ToString();
+                    } catch (Exception ex)
+                    {
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                    }
+                }
+                else
+                {                    
+                    for (int i = 0; i < inputs.Count; i++)
+                    {
+                        if (inputs[i]["name"].ToString() == NickName)
+                        {
+                            value = inputs[i]["value"].ToString();
+                            break;
+                        }
                     }
                 }
 
