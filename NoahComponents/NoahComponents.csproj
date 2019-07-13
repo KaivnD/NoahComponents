@@ -117,7 +117,7 @@
   <PropertyGroup>
     <PostBuildEvent>Copy "$(TargetPath)" "$(TargetDir)$(ProjectName).gha"
 Erase "$(TargetPath)"
-powershell -c "(Get-Content ..\Properties\AssemblyInfo.cs)[-1] | Out-File version"</PostBuildEvent>
+powershell -c "(Get-Content ..\Properties\AssemblyInfo.cs)[-1] | Out-File -Encoding utf8 .\version"</PostBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
     <FallbackCulture>en-US</FallbackCulture>
