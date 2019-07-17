@@ -8,6 +8,7 @@ using Rhino.Geometry;
 using Rhino.FileIO;
 using System.IO;
 using System.Collections.Generic;
+using Rhino.Runtime;
 
 namespace Noah.Components
 {
@@ -19,12 +20,14 @@ namespace Noah.Components
             Rhino,
             Text
         }
+        private GH_Document ghDoc { get; set; }
         protected override Bitmap Icon => Properties.Resources.setvar;
         private ExportMode m_mode;
         public Exporter()
             : base("Exporter", "Exporter", "出口", "Noah", "Utils")
         {
             m_mode = ExportMode.Rhino;
+            ghDoc = OnPingDocument();
         }
 
         public override Guid ComponentGuid => new Guid("56CABC33-DA6D-48CB-9EBB-D092174BAA70");
@@ -33,17 +36,35 @@ namespace Noah.Components
         {
             pManager.AddGenericParameter("物件", "E", "需要出口的内容", GH_ParamAccess.list);
             pManager.AddIntegerParameter("序号", "X", "对应Noah包输出的序号，从0起", GH_ParamAccess.item);
-            pManager.AddTextParameter("属性", "A", "对应的图层属性", GH_ParamAccess.item);
+            pManager.AddTextParameter("属性", "A", "对应的图层属性", GH_ParamAccess.item, "默认值");
             pManager[0].DataMapping = GH_DataMapping.Flatten;
-            pManager[1].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
         }
 
+        private string NOAH_PROJECT { get; set; }
+        private string TASK_TICKET { get; set; }        
+
         protected override void SolveInstance(IGH_DataAccess DA)
         {
+            PythonScript script = PythonScript.Create();
+            string outDir = "";
+            try
+            {
+                script.ExecuteScript("import scriptcontext as sc\nV=sc.sticky['NOAH_PROJECT']\nT=sc.sticky['TASK_TICKET']");
+                NOAH_PROJECT = (string)script.GetVariable("V");
+                TASK_TICKET = (string)script.GetVariable("T");
+                if (File.Exists(NOAH_PROJECT))
+                {
+                    outDir = Path.Combine(Path.GetDirectoryName(NOAH_PROJECT), ".noah", "tasks", TASK_TICKET, "out");
+                }
+            }
+            catch (Exception ex)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+            }
             switch (m_mode)
             {
                 case ExportMode.None:
@@ -51,8 +72,11 @@ namespace Noah.Components
                     break;
                 case ExportMode.Rhino:
                     Message = "Rhino";
-                    string filePath = @"D:\Desktop\test.3dm";
-                    string layerName = "默认值";
+                    int outIndex = 0;
+                    DA.GetData(1, ref outIndex);
+                    string fileName = Convert.ToString(outIndex) + ".3dm";
+                    string filePath = Path.Combine(outDir, fileName);
+                    string layerName = "";
                     List<object> geo = new List<object>();
                     DA.GetDataList(0, geo);
                     DA.GetData(2, ref layerName);
