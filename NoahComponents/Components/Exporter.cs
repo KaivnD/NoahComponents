@@ -9,6 +9,7 @@ using Rhino.FileIO;
 using System.IO;
 using System.Collections.Generic;
 using Rhino.Runtime;
+using Noah.Utils;
 
 namespace Noah.Components
 {
@@ -35,9 +36,8 @@ namespace Noah.Components
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddGenericParameter("物件", "E", "需要出口的内容", GH_ParamAccess.list);
-            pManager.AddIntegerParameter("序号", "X", "对应Noah包输出的序号，从0起", GH_ParamAccess.item);
-            pManager.AddTextParameter("属性", "A", "对应的图层属性", GH_ParamAccess.item, "默认值");
-            pManager[0].DataMapping = GH_DataMapping.Flatten;
+            pManager.AddGenericParameter("属性", "A", "对应的图层属性", GH_ParamAccess.list);
+            pManager.AddIntegerParameter("序号", "X", "对应Noah包输出的序号，从0起", GH_ParamAccess.item);            
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -49,17 +49,19 @@ namespace Noah.Components
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            PythonScript script = PythonScript.Create();
+            //PythonScript script = PythonScript.Create();
             string outDir = "";
             try
             {
-                script.ExecuteScript("import scriptcontext as sc\nV=sc.sticky['NOAH_PROJECT']\nT=sc.sticky['TASK_TICKET']");
-                NOAH_PROJECT = (string)script.GetVariable("V");
-                TASK_TICKET = (string)script.GetVariable("T");
-                if (File.Exists(NOAH_PROJECT))
-                {
-                    outDir = Path.Combine(Path.GetDirectoryName(NOAH_PROJECT), ".noah", "tasks", TASK_TICKET, "out");
-                }
+                //script.ExecuteScript("import scriptcontext as sc\nV=sc.sticky['NOAH_PROJECT']\nT=sc.sticky['TASK_TICKET']");
+                //NOAH_PROJECT = (string)script.GetVariable("V");
+                //TASK_TICKET = (string)script.GetVariable("T");
+                outDir = @"C:\Users\KaivnD\Desktop\ClusterTools";
+                //if (File.Exists(NOAH_PROJECT))
+                //{
+                    //outDir = Path.Combine(Path.GetDirectoryName(NOAH_PROJECT), ".noah", "tasks", TASK_TICKET, "out");
+                    
+                //}
             }
             catch (Exception ex)
             {
@@ -73,14 +75,13 @@ namespace Noah.Components
                 case ExportMode.Rhino:
                     Message = "Rhino";
                     int outIndex = 0;
-                    DA.GetData(1, ref outIndex);
+                    DA.GetData(2, ref outIndex);
                     string fileName = Convert.ToString(outIndex) + ".3dm";
                     string filePath = Path.Combine(outDir, fileName);
-                    string layerName = "";
+                    List<LayerInfo> layers = new List<LayerInfo>();
                     List<object> geo = new List<object>();
                     DA.GetDataList(0, geo);
-                    DA.GetData(2, ref layerName);
-                    layerName = layerName.ToString();
+                    DA.GetDataList(1, layers);
                     File3dm f = null;
                     if (File.Exists(filePath))
                     {
@@ -98,11 +99,10 @@ namespace Noah.Components
                     {
                         f = new File3dm();
                     }
-
-                    ObjectAttributes att = getObjAttr(layerName, f, Color.Black);
+                    
                     if (geo != null)
                     {
-                        writeRhino3dm(f, filePath, geo, att);
+                        writeRhino3dm(f, filePath, geo, layers);
                     }
 
                     break;
@@ -112,40 +112,42 @@ namespace Noah.Components
             }
         }
 
-        private void writeRhino3dm (File3dm f, string filePath, List<object> G, ObjectAttributes att)
+        private void writeRhino3dm (File3dm f, string filePath, List<object> G, List<LayerInfo> att)
         {
-            G.ForEach(x =>
+            for (int i = 0; i < G.Count; i ++)
             {
-                GeometryBase g = GH_Convert.ToGeometryBase(x);
-                
+                GeometryBase g = GH_Convert.ToGeometryBase(G[i]);
+                ObjectAttributes attr = getObjAttr(att[i].Name, f, att[i].Color);
+
+
                 if (g != null)
                 {
                     switch (g.ObjectType)
                     {
                         case ObjectType.Brep:
-                            f.Objects.AddBrep(g as Brep, att);
+                            f.Objects.AddBrep(g as Brep, attr);
                             break;
                         case ObjectType.Curve:
-                            f.Objects.AddCurve(g as Curve, att);
+                            f.Objects.AddCurve(g as Curve, attr);
                             break;
                         case ObjectType.Point:
-                            f.Objects.AddPoint((g as Rhino.Geometry.Point).Location, att);
+                            f.Objects.AddPoint((g as Rhino.Geometry.Point).Location, attr);
                             break;
                         case ObjectType.Surface:
-                            f.Objects.AddSurface(g as Surface, att);
+                            f.Objects.AddSurface(g as Surface, attr);
                             break;
                         case ObjectType.Mesh:
-                            f.Objects.AddMesh(g as Mesh, att);
+                            f.Objects.AddMesh(g as Mesh, attr);
                             break;
                         case ObjectType.PointSet:
-                            f.Objects.AddPointCloud(g as PointCloud, att); //This is a speculative entry
+                            f.Objects.AddPointCloud(g as PointCloud, attr); //This is a speculative entry
                             break;
                         default:
                             AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "不能识别的物体: " + G.GetType().FullName);
                             break;
                     }
                 }
-            });
+            }
 
             f.Write(filePath, 5);
             f.Dispose();
@@ -181,7 +183,7 @@ namespace Noah.Components
                     parent.Name = L;
                     parent.Color = c;
                     doc.AllLayers.Add(parent);
-                    layerIndex = parent.Index;
+                    layerIndex = parent.SortIndex;
                 }
                 att.LayerIndex = layerIndex;                
                 return att;

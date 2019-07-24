@@ -63,6 +63,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Components\Cooker.cs" />
+    <Compile Include="Components\CreateLayer.cs" />
     <Compile Include="Components\Exporter.cs" />
     <Compile Include="Components\GetVar.cs" />
     <Compile Include="Components\GetVarAttr.cs" />
@@ -79,6 +80,7 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <Compile Include="Utils\LayerInfo.cs" />
     <Compile Include="Utils\San.cs" />
   </ItemGroup>
   <ItemGroup>
