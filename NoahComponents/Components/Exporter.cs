@@ -31,13 +31,13 @@ namespace Noah.Components
             ghDoc = OnPingDocument();
         }
 
-        public override Guid ComponentGuid => new Guid("56CABC33-DA6D-48CB-9EBB-D092174BAA70");
+        public override Guid ComponentGuid => new Guid("03067262-63C4-4B7E-A742-2712EA89B5CC");
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddGenericParameter("物件", "E", "需要出口的内容", GH_ParamAccess.list);
             pManager.AddGenericParameter("属性", "A", "对应的图层属性", GH_ParamAccess.list);
-            pManager.AddIntegerParameter("序号", "X", "对应Noah包输出的序号，从0起", GH_ParamAccess.item);            
+            pManager.AddIntegerParameter("序号", "X", "对应Noah包输出的序号，从0起", GH_ParamAccess.item, 0);            
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -49,19 +49,18 @@ namespace Noah.Components
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            //PythonScript script = PythonScript.Create();
+            PythonScript script = PythonScript.Create();
             string outDir = "";
             try
             {
-                //script.ExecuteScript("import scriptcontext as sc\nV=sc.sticky['NOAH_PROJECT']\nT=sc.sticky['TASK_TICKET']");
-                //NOAH_PROJECT = (string)script.GetVariable("V");
-                //TASK_TICKET = (string)script.GetVariable("T");
-                outDir = @"C:\Users\KaivnD\Desktop\ClusterTools";
-                //if (File.Exists(NOAH_PROJECT))
-                //{
-                    //outDir = Path.Combine(Path.GetDirectoryName(NOAH_PROJECT), ".noah", "tasks", TASK_TICKET, "out");
-                    
-                //}
+                script.ExecuteScript("import scriptcontext as sc\nV=sc.sticky['NOAH_PROJECT']\nT=sc.sticky['TASK_TICKET']");
+                NOAH_PROJECT = (string)script.GetVariable("V");
+                TASK_TICKET = (string)script.GetVariable("T");
+                if (File.Exists(NOAH_PROJECT))
+                {
+                    outDir = Path.Combine(Path.GetDirectoryName(NOAH_PROJECT), ".noah", "tasks", TASK_TICKET, "out");
+
+                }
             }
             catch (Exception ex)
             {
@@ -99,10 +98,17 @@ namespace Noah.Components
                     {
                         f = new File3dm();
                     }
-                    
-                    if (geo != null)
+
+                    if (layers.Count != geo.Count)
                     {
-                        writeRhino3dm(f, filePath, geo, layers);
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "E, A两个列表长度不等");
+                        return;
+                    } else
+                    {
+                        if (geo != null)
+                        {
+                            writeRhino3dm(f, filePath, geo, layers);
+                        }
                     }
 
                     break;
@@ -183,7 +189,7 @@ namespace Noah.Components
                     parent.Name = L;
                     parent.Color = c;
                     doc.AllLayers.Add(parent);
-                    layerIndex = parent.SortIndex;
+                    layerIndex = doc.AllLayers.Count - 1;
                 }
                 att.LayerIndex = layerIndex;                
                 return att;
