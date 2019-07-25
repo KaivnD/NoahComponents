@@ -20,6 +20,9 @@ namespace Noah.Components
         {
 
         }
+
+        protected override Bitmap Icon => Properties.Resources.layers;
+
         public override Guid ComponentGuid => new Guid("8E5427FE-BE49-4B42-91AE-BD96748A8817");
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)

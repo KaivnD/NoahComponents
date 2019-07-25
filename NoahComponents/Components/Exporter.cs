@@ -36,8 +36,8 @@ namespace Noah.Components
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddGenericParameter("物件", "E", "需要出口的内容", GH_ParamAccess.list);
+            pManager.AddIntegerParameter("序号", "X", "对应Noah包输出的序号，从0起", GH_ParamAccess.item, 0);
             pManager.AddGenericParameter("属性", "A", "对应的图层属性", GH_ParamAccess.list);
-            pManager.AddIntegerParameter("序号", "X", "对应Noah包输出的序号，从0起", GH_ParamAccess.item, 0);            
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -62,9 +62,9 @@ namespace Noah.Components
 
                 }
             }
-            catch (Exception ex)
+            catch
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "出口功能需要从客户端启动才能运行");
             }
             switch (m_mode)
             {
@@ -74,13 +74,13 @@ namespace Noah.Components
                 case ExportMode.Rhino:
                     Message = "Rhino";
                     int outIndex = 0;
-                    DA.GetData(2, ref outIndex);
+                    DA.GetData(1, ref outIndex);
                     string fileName = Convert.ToString(outIndex) + ".3dm";
                     string filePath = Path.Combine(outDir, fileName);
                     List<LayerInfo> layers = new List<LayerInfo>();
                     List<object> geo = new List<object>();
                     DA.GetDataList(0, geo);
-                    DA.GetDataList(1, layers);
+                    DA.GetDataList(2, layers);
                     File3dm f = null;
                     if (File.Exists(filePath))
                     {
@@ -105,9 +105,22 @@ namespace Noah.Components
                         return;
                     } else
                     {
+                        List<int> ll = new List<int>();
+                        layers.ForEach(x =>
+                        {
+                            if (getLayerIndex(x, f) < 0)
+                            {
+                                Layer l = new Layer();
+                                l.Name = x.Name;
+                                l.Color = x.Color;
+                                f.AllLayers.Add(l);
+                            }
+                            ll.Add(getLayerIndex(x, f));
+                        });
+
                         if (geo != null)
                         {
-                            writeRhino3dm(f, filePath, geo, layers);
+                            writeRhino3dm(f, filePath, geo, ll);
                         }
                     }
 
@@ -118,13 +131,13 @@ namespace Noah.Components
             }
         }
 
-        private void writeRhino3dm (File3dm f, string filePath, List<object> G, List<LayerInfo> att)
+        private void writeRhino3dm (File3dm f, string filePath, List<object> G, List<int> att)
         {
             for (int i = 0; i < G.Count; i ++)
             {
                 GeometryBase g = GH_Convert.ToGeometryBase(G[i]);
-                ObjectAttributes attr = getObjAttr(att[i].Name, f, att[i].Color);
-
+                ObjectAttributes attr = new ObjectAttributes();
+                attr.LayerIndex = att[i];
 
                 if (g != null)
                 {
@@ -159,42 +172,29 @@ namespace Noah.Components
             f.Dispose();
         }
 
-        public static ObjectAttributes getObjAttr(string L, File3dm doc, Color c)
+        private static int getLayerIndex (LayerInfo li, File3dm f)
         {
-            //储存物件的信息
-            ObjectAttributes att = new ObjectAttributes();
-            //设置图层信息
-            if (!string.IsNullOrEmpty(L) && Layer.IsValidName(L))
+            if (li.Name.Contains(Layer.PathSeparator))
             {
-                int layerIndex = 0;
-                if (L.Contains("::"))
-                {//包含子图层信息
-                    L = L.Replace("::", "-");
-                    string[] xArr = L.Split('-');
-                    Layer parent = new Layer();
-                    parent.Name = xArr[0];
-                    doc.AllLayers.Add(parent);
-
-                    Layer child = new Layer();
-                    child.Name = xArr[1];
-                    child.Color = c;
-                    child.ParentLayerId = parent.Id;
-                    doc.AllLayers.Add(child);
-
-                    layerIndex = child.Index;
+                foreach (Layer l in f.AllLayers)
+                {
+                    if (l.FullPath == li.Name)
+                    {
+                        return l.Index;
+                    }
                 }
-                else
-                {//不包含子图层信息
-                    Layer parent = new Layer();
-                    parent.Name = L;
-                    parent.Color = c;
-                    doc.AllLayers.Add(parent);
-                    layerIndex = doc.AllLayers.Count - 1;
+            } else
+            {
+                foreach (Layer l in f.AllLayers)
+                {
+                    if (l.Name == li.Name)
+                    {
+                        return l.Index;
+                    }
                 }
-                att.LayerIndex = layerIndex;                
-                return att;
             }
-            else return null;
+
+            return -1;
         }
 
         protected override void AppendAdditionalComponentMenuItems(ToolStripDropDown menu)
@@ -261,8 +261,8 @@ namespace Noah.Components
                 IGH_Param param = Params.Input[2];
                 param.Name = "属性";
                 param.NickName = "A";
-                param.Description = "储存到Rhino文件的图层信息等等";
-                param.Access = GH_ParamAccess.item;
+                param.Description = "对应的图层属性";
+                param.Access = GH_ParamAccess.list;
                 param.Optional = true;
             }
         }
