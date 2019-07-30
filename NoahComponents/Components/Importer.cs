@@ -7,6 +7,7 @@ using Newtonsoft.Json;
 using System.Xml;
 using Formatting = Newtonsoft.Json.Formatting;
 using Newtonsoft.Json.Linq;
+using System.Drawing;
 
 namespace Noah.Components
 {
@@ -23,10 +24,10 @@ namespace Noah.Components
         private void ProjectFileChanged(string filename)
         {
             ProjectInfo = JObject.Parse(File.ReadAllText(NOAH_PROJECT));
-            ExpireSolution(true);
+            //ExpireSolution(true);
         }
 
-        protected override System.Drawing.Bitmap Icon => Properties.Resources.getvar;
+        protected override Bitmap Icon => Properties.Resources.getvar;
         public override Guid ComponentGuid => new Guid("C7960BD2-930A-4E27-B197-B09C5DD6CD2D");
         public override void CreateAttributes()
         {
@@ -117,24 +118,24 @@ namespace Noah.Components
                 {
                     m_data.Append(null);
                 }
-                if (SourceCount == 1)
-                {
-                    int inputIdx = -1;
-                    for (int i = 0; i < inputs.Count; i++)
-                    {
-                        if (inputs[i]["name"].ToString() == NickName)
-                        {
-                            inputIdx = i;
-                            break;
-                        }
-                    }
-                    if (inputIdx >= 0)
-                    {
-                        ProjectInfo["generators"][NOAH_GENERATOR]["input"][inputIdx]["value"] = Sources[0].VolatileData.get_Branch(0)[0].ToString();
-                        File.WriteAllText(NOAH_PROJECT, JsonConvert.SerializeObject(ProjectInfo, Formatting.Indented));
-                    }
-                    Sources[0].NickName = NickName;
-                }
+                //if (SourceCount == 1)
+                //{
+                //    int inputIdx = -1;
+                //    for (int i = 0; i < inputs.Count; i++)
+                //    {
+                //        if (inputs[i]["name"].ToString() == NickName)
+                //        {
+                //            inputIdx = i;
+                //            break;
+                //        }
+                //    }
+                //    if (inputIdx >= 0)
+                //    {
+                //        ProjectInfo["generators"][NOAH_GENERATOR]["input"][inputIdx]["value"] = Sources[0].VolatileData.get_Branch(0)[0].ToString();
+                //        File.WriteAllText(NOAH_PROJECT, JsonConvert.SerializeObject(ProjectInfo, Formatting.Indented));
+                //    }
+                //    Sources[0].NickName = NickName;
+                //}
             } else m_data.Append(null);
         }
 

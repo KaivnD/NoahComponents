@@ -37,7 +37,21 @@ namespace Noah.Components
             string k = NickName;
             var script = PythonScript.Create();
             script.ExecuteScript("import scriptcontext as sc\nif sc.sticky.has_key('" + k + "'):\t\t\t\tV = sc.sticky['" + k + "']\nelse : V = 0");
-            m_data.Append(new GH_ObjectWrapper(script.GetVariable("V")));
+            object value = script.GetVariable("V");
+            GH_Number castNumber = null;
+            GH_String castString = null;
+            if (GH_Convert.ToGHNumber(value, GH_Conversion.Both, ref castNumber))
+            {
+                m_data.Append(new GH_ObjectWrapper(castNumber));
+            }
+            else if (GH_Convert.ToGHString(value, GH_Conversion.Both, ref castString))
+            {
+                m_data.Append(new GH_ObjectWrapper(castString));
+            }
+            else
+            {
+                m_data.Append((IGH_Goo)value);
+            }
         }
 
         public override GH_Exposure Exposure => GH_Exposure.secondary;

@@ -10,6 +10,8 @@ using System.IO;
 using System.Collections.Generic;
 using Rhino.Runtime;
 using Noah.Utils;
+using Newtonsoft.Json.Linq;
+using Newtonsoft.Json;
 
 namespace Noah.Components
 {
@@ -22,6 +24,7 @@ namespace Noah.Components
             Text
         }
         private GH_Document ghDoc { get; set; }
+
         protected override Bitmap Icon => Properties.Resources.setvar;
         private ExportMode m_mode;
         public Exporter()
@@ -45,7 +48,9 @@ namespace Noah.Components
         }
 
         private string NOAH_PROJECT { get; set; }
-        private string TASK_TICKET { get; set; }        
+        private string TASK_TICKET { get; set; }
+        private int NOAH_GENERATOR = 0;
+        private JObject ProjectInfo = null;
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
@@ -53,13 +58,14 @@ namespace Noah.Components
             string outDir = "";
             try
             {
-                script.ExecuteScript("import scriptcontext as sc\nV=sc.sticky['NOAH_PROJECT']\nT=sc.sticky['TASK_TICKET']");
+                script.ExecuteScript("import scriptcontext as sc\nV=sc.sticky['NOAH_PROJECT']\nT=sc.sticky['TASK_TICKET']\nG=int(sc.sticky['NOAH_GENERATOR'])");
                 NOAH_PROJECT = (string)script.GetVariable("V");
                 TASK_TICKET = (string)script.GetVariable("T");
+                NOAH_GENERATOR = (int)script.GetVariable("G");
                 if (File.Exists(NOAH_PROJECT))
                 {
                     outDir = Path.Combine(Path.GetDirectoryName(NOAH_PROJECT), ".noah", "tasks", TASK_TICKET, "out");
-
+                    ProjectInfo = JObject.Parse(File.ReadAllText(NOAH_PROJECT));
                 }
             }
             catch
@@ -121,6 +127,8 @@ namespace Noah.Components
                         if (geo != null)
                         {
                             writeRhino3dm(f, filePath, geo, ll);
+                            ProjectInfo["generators"][NOAH_GENERATOR]["output"][outIndex]["value"] = filePath;
+                            File.WriteAllText(NOAH_PROJECT, JsonConvert.SerializeObject(ProjectInfo, Formatting.Indented));
                         }
                     }
 
