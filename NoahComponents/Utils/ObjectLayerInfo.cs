@@ -7,19 +7,21 @@ using System.Threading.Tasks;
 
 namespace Noah.Utils
 {
-    public class LayerInfo
+    public class ObjectLayerInfo
     {
+        public object Geometry { set; get; }
         public string Name { set; get; }
         public Color Color { set; get; }
-        public LayerInfo (string name, Color color)
+        public ObjectLayerInfo(object geometry, string name, Color color)
         {
+            Geometry = geometry;
             Name = name;
             Color = color;
         }
 
         public override string ToString ()
         {
-            return "Name: " + Name + "; Color:" + Color.ToString();
+            return string.Format("Name: {0}; Color: {1}; Geometry: {2}", Name, Color.ToString(), Geometry.ToString());
         }
     }
 }

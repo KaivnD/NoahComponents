@@ -15,7 +15,7 @@ using Newtonsoft.Json;
 
 namespace Noah.Components
 {
-    public class Exporter : GH_Component , IGH_VariableParameterComponent
+    public class Exporter : GH_Component
     {
         private enum ExportMode
         {
@@ -38,9 +38,9 @@ namespace Noah.Components
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddGenericParameter("物件", "E", "需要出口的内容", GH_ParamAccess.list);
+            pManager.AddGenericParameter("内容", "E", "需要出口的内容", GH_ParamAccess.list);
             pManager.AddIntegerParameter("序号", "X", "对应Noah包输出的序号，从0起", GH_ParamAccess.item, 0);
-            pManager.AddGenericParameter("属性", "A", "对应的图层属性", GH_ParamAccess.list);
+            pManager[0].DataMapping = GH_DataMapping.Flatten;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -83,10 +83,8 @@ namespace Noah.Components
                     DA.GetData(1, ref outIndex);
                     string fileName = Convert.ToString(outIndex) + ".3dm";
                     string filePath = Path.Combine(outDir, fileName);
-                    List<LayerInfo> layers = new List<LayerInfo>();
-                    List<object> geo = new List<object>();
-                    DA.GetDataList(0, geo);
-                    DA.GetDataList(2, layers);
+                    List<ObjectLayerInfo> layeredObj = new List<ObjectLayerInfo>();
+                    DA.GetDataList(0, layeredObj);
                     File3dm f = null;
                     if (File.Exists(filePath))
                     {
@@ -105,31 +103,24 @@ namespace Noah.Components
                         f = new File3dm();
                     }
 
-                    if (layers.Count != geo.Count)
+                    List<int> ll = new List<int>();
+                    layeredObj.ForEach(x =>
                     {
-                        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "E, A两个列表长度不等");
-                        return;
-                    } else
-                    {
-                        List<int> ll = new List<int>();
-                        layers.ForEach(x =>
+                        if (getLayerIndex(x, f) < 0)
                         {
-                            if (getLayerIndex(x, f) < 0)
-                            {
-                                Layer l = new Layer();
-                                l.Name = x.Name;
-                                l.Color = x.Color;
-                                f.AllLayers.Add(l);
-                            }
-                            ll.Add(getLayerIndex(x, f));
-                        });
-
-                        if (geo != null)
-                        {
-                            writeRhino3dm(f, filePath, geo, ll);
-                            ProjectInfo["generators"][NOAH_GENERATOR]["output"][outIndex]["value"] = filePath;
-                            File.WriteAllText(NOAH_PROJECT, JsonConvert.SerializeObject(ProjectInfo, Formatting.Indented));
+                            Layer l = new Layer();
+                            l.Name = x.Name;
+                            l.Color = x.Color;
+                            f.AllLayers.Add(l);
                         }
+                        ll.Add(getLayerIndex(x, f));
+                    });
+
+                    if (layeredObj.Count > 0)
+                    {
+                        writeRhino3dm(f, filePath, layeredObj, ll);
+                        ProjectInfo["generators"][NOAH_GENERATOR]["output"][outIndex]["value"] = filePath;
+                        File.WriteAllText(NOAH_PROJECT, JsonConvert.SerializeObject(ProjectInfo, Formatting.Indented));
                     }
 
                     break;
@@ -139,11 +130,11 @@ namespace Noah.Components
             }
         }
 
-        private void writeRhino3dm (File3dm f, string filePath, List<object> G, List<int> att)
+        private void writeRhino3dm (File3dm f, string filePath, List<ObjectLayerInfo> G, List<int> att)
         {
             for (int i = 0; i < G.Count; i ++)
             {
-                GeometryBase g = GH_Convert.ToGeometryBase(G[i]);
+                GeometryBase g = GH_Convert.ToGeometryBase(G[i].Geometry);
                 ObjectAttributes attr = new ObjectAttributes();
                 attr.LayerIndex = att[i];
 
@@ -180,7 +171,7 @@ namespace Noah.Components
             f.Dispose();
         }
 
-        private static int getLayerIndex (LayerInfo li, File3dm f)
+        private static int getLayerIndex (ObjectLayerInfo li, File3dm f)
         {
             if (li.Name.Contains(Layer.PathSeparator))
             {
@@ -215,64 +206,23 @@ namespace Noah.Components
                         RecordUndoEvent("Rhino");
                         m_mode = ExportMode.Rhino;
 
-                        Params.RegisterInputParam(new Param_GenericObject());
-                        VariableParameterMaintenance();
-                        Params.OnParametersChanged();
                         ExpireSolution(recompute: true);
                     }
                 }, true, m_mode == ExportMode.Rhino);
             toolStripMenuItem.ToolTipText = 
                 "将O端输入的内容写入3DM文件" + Environment.NewLine + "请确保输入的内容为可写入3DM文件的类型";
             ToolStripMenuItem toolStripMenuItem2 = Menu_AppendItem(
-            menu, "DWG", (object sender, EventArgs e) =>
+            menu, "Text", (object sender, EventArgs e) =>
             {
                 if (m_mode != ExportMode.Text)
                 {
                     RecordUndoEvent("Text");
                     m_mode = ExportMode.Text;
-
-                    Params.UnregisterInputParameter(Params.Input[Params.Input.Count - 1]);
                     ExpireSolution(recompute: true);
                 }
             }, true, m_mode == ExportMode.Text);
                     toolStripMenuItem2.ToolTipText =
-                        "将O端输入的内容写入DWG文件" + Environment.NewLine + "请确保输入的内容为可写入DWG文件的类型";
-        }
-
-        public bool CanInsertParameter(GH_ParameterSide side, int index)
-        {
-            return false;
-        }
-
-        public bool CanRemoveParameter(GH_ParameterSide side, int index)
-        {
-            return false;
-        }
-
-        public IGH_Param CreateParameter(GH_ParameterSide side, int index)
-        {
-            return new Param_GenericObject
-            {
-                NickName = string.Empty
-            };
-        }
-
-        public bool DestroyParameter(GH_ParameterSide side, int index)
-        {
-            return true;
-        }
-
-        public void VariableParameterMaintenance()
-        {
-            if (Params.Input.Count == 3)
-            {
-                IGH_Param param = Params.Input[2];
-                param.Name = "属性";
-                param.NickName = "A";
-                param.Description = "对应的图层属性";
-                param.Access = GH_ParamAccess.list;
-                param.Optional = true;
-            }
+                        "将O端输入的内容写到NOAH包输出端" + Environment.NewLine + "请确保输入的内容为可写入文本";
         }
     }
 }
