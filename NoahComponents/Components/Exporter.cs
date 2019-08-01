@@ -24,6 +24,11 @@ namespace Noah.Components
             Text
         }
         private GH_Document ghDoc { get; set; }
+        private string NOAH_PROJECT { get; set; }
+        private string TASK_TICKET { get; set; }
+        private int NOAH_GENERATOR = 0;
+        private JObject ProjectInfo = null;
+        private bool exported = false;
 
         protected override Bitmap Icon => Properties.Resources.setvar;
         private ExportMode m_mode;
@@ -32,6 +37,13 @@ namespace Noah.Components
         {
             m_mode = ExportMode.Rhino;
             ghDoc = OnPingDocument();
+            SolutionExpired += SolutionExpiredHandler;
+            ObjectChanged += ObjectChangedHandler;
+        }
+
+        private void SolutionExpiredHandler(IGH_DocumentObject sender, GH_SolutionExpiredEventArgs e)
+        {
+            exported = false;
         }
 
         public override Guid ComponentGuid => new Guid("03067262-63C4-4B7E-A742-2712EA89B5CC");
@@ -47,10 +59,11 @@ namespace Noah.Components
         {
         }
 
-        private string NOAH_PROJECT { get; set; }
-        private string TASK_TICKET { get; set; }
-        private int NOAH_GENERATOR = 0;
-        private JObject ProjectInfo = null;
+        private void ObjectChangedHandler(IGH_DocumentObject sender, GH_ObjectChangedEventArgs e)
+        {
+            exported = false;
+            ExpireSolution(true);
+        }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
@@ -119,8 +132,12 @@ namespace Noah.Components
                     if (layeredObj.Count > 0)
                     {
                         writeRhino3dm(f, filePath, layeredObj, ll);
-                        ProjectInfo["generators"][NOAH_GENERATOR]["output"][outIndex]["value"] = filePath;
-                        File.WriteAllText(NOAH_PROJECT, JsonConvert.SerializeObject(ProjectInfo, Formatting.Indented));
+                        if (!exported)
+                        {
+                            ProjectInfo["generators"][NOAH_GENERATOR]["output"][outIndex]["value"] = filePath;
+                            File.WriteAllText(NOAH_PROJECT, JsonConvert.SerializeObject(ProjectInfo, Formatting.Indented));
+                            exported = true;
+                        }
                     }
 
                     break;
