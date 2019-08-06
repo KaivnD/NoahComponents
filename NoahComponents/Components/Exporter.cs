@@ -179,7 +179,8 @@ namespace Noah.Components
                     val2.SetBoolean("Empty", volatileData.IsEmpty);
                     if (!volatileData.IsEmpty)
                     {
-                        DA.GetDataTree(0, out GH_Structure<IGH_Goo> tree);
+                        GH_Structure<IGH_Goo> tree = null;
+                        DA.GetDataTree(0, out tree);
                         if (!tree.Write(val2.CreateChunk("Data")))
                         {
                             AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"There was a problem writing the {iGH_Param.NickName} data.");
