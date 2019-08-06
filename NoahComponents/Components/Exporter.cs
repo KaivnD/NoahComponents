@@ -12,6 +12,9 @@ using Rhino.Runtime;
 using Noah.Utils;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
+using GH_IO.Serialization;
+using Grasshopper.Kernel.Data;
+using Grasshopper.Kernel.Types;
 
 namespace Noah.Components
 {
@@ -19,11 +22,11 @@ namespace Noah.Components
     {
         private enum ExportMode
         {
-            None,
-            Rhino,
-            Text
+            None = 0,
+            Rhino = 1,
+            Text = 2,
+            Data = 3
         }
-        private GH_Document ghDoc { get; set; }
         private string NOAH_PROJECT { get; set; }
         private string TASK_TICKET { get; set; }
         private int NOAH_GENERATOR = 0;
@@ -36,7 +39,7 @@ namespace Noah.Components
             : base("Exporter", "Exporter", "出口", "Noah", "Utils")
         {
             m_mode = ExportMode.Rhino;
-            ghDoc = OnPingDocument();
+            UpdateMessage();
             SolutionExpired += SolutionExpiredHandler;
             ObjectChanged += ObjectChangedHandler;
         }
@@ -67,6 +70,7 @@ namespace Noah.Components
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
+            UpdateMessage();
             PythonScript script = PythonScript.Create();
             string outDir = "";
             try
@@ -85,15 +89,20 @@ namespace Noah.Components
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "出口功能需要从客户端启动才能运行");
             }
+            int outIndex = 0;
+            DA.GetData(1, ref outIndex);
+
+            JArray output = JArray.Parse(ProjectInfo["generators"][NOAH_GENERATOR]["output"].ToString());
+            if (outIndex >= output.Count)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "定义时未指定此输出端口");
+            }
             switch (m_mode)
             {
                 case ExportMode.None:
                     Message = null;
                     break;
                 case ExportMode.Rhino:
-                    Message = "Rhino";
-                    int outIndex = 0;
-                    DA.GetData(1, ref outIndex);
                     string fileName = Convert.ToString(outIndex) + ".3dm";
                     string filePath = Path.Combine(outDir, fileName);
                     List<ObjectLayerInfo> layeredObj = new List<ObjectLayerInfo>();
@@ -142,7 +151,55 @@ namespace Noah.Components
 
                     break;
                 case ExportMode.Text:
-                    Message = "Text";
+                    if (!exported)
+                    {
+                        string outputData = "";
+                        DA.GetData(0, ref outputData);
+                        ProjectInfo["generators"][NOAH_GENERATOR]["output"][outIndex]["value"] = outputData;
+                        File.WriteAllText(NOAH_PROJECT, JsonConvert.SerializeObject(ProjectInfo, Formatting.Indented));
+                        exported = true;
+                    }
+                    break;
+                case ExportMode.Data:
+                    fileName = Convert.ToString(outIndex) + ".noahdata";
+                    filePath = Path.Combine(outDir, fileName);
+                    if (string.IsNullOrWhiteSpace(filePath))
+                    {
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "未指定文件.");
+                        return;
+                    }
+                    
+                    GH_LooseChunk val = new GH_LooseChunk("Grasshopper Data");
+                    val.SetGuid("OriginId", base.InstanceGuid);
+                    val.SetInt32("Count", base.Params.Input.Count);
+                    IGH_Param iGH_Param = base.Params.Input[0];
+                    IGH_Structure volatileData = iGH_Param.VolatileData;
+                    GH_IWriter val2 = val.CreateChunk("Block", 0);
+                    val2.SetString("Name", iGH_Param.NickName);
+                    val2.SetBoolean("Empty", volatileData.IsEmpty);
+                    if (!volatileData.IsEmpty)
+                    {
+                        DA.GetDataTree(0, out GH_Structure<IGH_Goo> tree);
+                        if (!tree.Write(val2.CreateChunk("Data")))
+                        {
+                            AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"There was a problem writing the {iGH_Param.NickName} data.");
+                        }
+                    }
+                    byte[] bytes = val.Serialize_Binary();
+                    try
+                    {
+                        File.WriteAllBytes(filePath, bytes);
+                    }
+                    catch (Exception ex)
+                    {
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                    }
+                    if (!exported)
+                    {
+                        ProjectInfo["generators"][NOAH_GENERATOR]["output"][outIndex]["value"] = filePath;
+                        File.WriteAllText(NOAH_PROJECT, JsonConvert.SerializeObject(ProjectInfo, Formatting.Indented));
+                        exported = true;
+                    }
                     break;
             }
         }
@@ -222,12 +279,14 @@ namespace Noah.Components
                     {
                         RecordUndoEvent("Rhino");
                         m_mode = ExportMode.Rhino;
+                        UpdateMessage();
 
                         ExpireSolution(recompute: true);
                     }
                 }, true, m_mode == ExportMode.Rhino);
             toolStripMenuItem.ToolTipText = 
-                "将O端输入的内容写入3DM文件" + Environment.NewLine + "请确保输入的内容为可写入3DM文件的类型";
+                "将E端输入的内容写入3DM文件" + Environment.NewLine + "请确保输入的内容为可写入3DM文件的类型";
+
             ToolStripMenuItem toolStripMenuItem2 = Menu_AppendItem(
             menu, "Text", (object sender, EventArgs e) =>
             {
@@ -235,11 +294,61 @@ namespace Noah.Components
                 {
                     RecordUndoEvent("Text");
                     m_mode = ExportMode.Text;
+                    UpdateMessage();
                     ExpireSolution(recompute: true);
                 }
             }, true, m_mode == ExportMode.Text);
-                    toolStripMenuItem2.ToolTipText =
-                        "将O端输入的内容写到NOAH包输出端" + Environment.NewLine + "请确保输入的内容为可写入文本";
+            toolStripMenuItem2.ToolTipText =
+                "将E端输入的内容写到NOAH包输出端" + Environment.NewLine + "请确保输入的内容为可写入文本";
+
+            ToolStripMenuItem toolStripMenuItem3 = Menu_AppendItem(
+            menu, "Data", (object sender, EventArgs e) =>
+            {
+                if (m_mode != ExportMode.Data)
+                {
+                    RecordUndoEvent("Data");
+                    m_mode = ExportMode.Data;
+                    UpdateMessage();
+                    ExpireSolution(recompute: true);
+                }
+            }, true, m_mode == ExportMode.Data);
+            toolStripMenuItem3.ToolTipText =
+                "将E端输入的内容写到NOAH包输出端" + Environment.NewLine + "数据结构将在导入数据的时候被还原";
+        }
+
+        public override bool Write(GH_IWriter writer)
+        {
+            writer.SetInt32("ExportMode", (int)m_mode);
+            return base.Write(writer);
+        }
+
+        public override bool Read(GH_IReader reader)
+        {
+            m_mode = (ExportMode)reader.GetInt32("ExportMode");
+            UpdateMessage();
+            return base.Read(reader);
+        }
+
+        private void UpdateMessage()
+        {
+            switch (m_mode)
+            {
+                case ExportMode.Data:
+                    Message = "Data";
+                    Params.Input[0].Access = GH_ParamAccess.tree;
+                    Params.Input[0].DataMapping = GH_DataMapping.None;
+                    break;
+                case ExportMode.Rhino:
+                    Message = "Rhino";
+                    Params.Input[0].Access = GH_ParamAccess.list;
+                    Params.Input[0].DataMapping = GH_DataMapping.Flatten;
+                    break;
+                case ExportMode.Text:
+                    Message = "Text";
+                    Params.Input[0].Access = GH_ParamAccess.item;
+                    Params.Input[0].DataMapping = GH_DataMapping.None;
+                    break;
+            }
         }
     }
 }

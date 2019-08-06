@@ -15,7 +15,7 @@ namespace Noah.Components
 
 		private RectangleF TextBound;
 
-		public override bool HasInputGrip => true;
+		public override bool HasInputGrip => false;
 
 		public override bool HasOutputGrip => true;
 
@@ -68,59 +68,6 @@ namespace Noah.Components
                 gH_Capsule2.Render(graphics, Color.AliceBlue);
                 gH_Capsule2.Dispose();
             }
-            else if (channel ==GH_CanvasChannel.Wires && Owner.SourceCount == 1)
-			{
-				Color color = Utility.TernaryIf<Color>(Selected, GH_Skin.wire_selected_a, GH_Skin.wire_default);
-				if (base.Owner.Locked)
-				{
-					color = Color.FromArgb(50, color);
-				}
-				Rectangle r = GH_Convert.ToRectangle(base.Owner.Attributes.Bounds);
-				RenderTimerConnection(graphics, base.Owner.Sources[0].Attributes.OutputGrip, r, color);
-			}
-		}
-
-		public static void RenderTimerConnection(Graphics g, PointF anchor, RectangleF box, Color col)
-		{
-			if (box.Contains(anchor))
-			{
-				return;
-			}
-			Pen pen = new Pen(col, 3f);
-			pen.StartCap = LineCap.Round;
-			pen.DashCap = DashCap.Round;
-			pen.EndCap = LineCap.Round;
-			pen.DashPattern = new float[2]
-			{
-				1f,
-				0.8f
-			};
-			PointF pt = GH_GraphicsUtil.BoxClosestPoint(anchor + new SizeF(20f, 0f), box);
-			if ((double)Math.Abs(box.Y - anchor.Y) < 1.0)
-			{
-				g.DrawLine(pen, pt, anchor);
-			}
-			else
-			{
-				List<PointF> list = new List<PointF>();
-				list.Add(new PointF(anchor.X, anchor.Y));
-				if (pt.X < anchor.X + 20f)
-				{
-					list.Add(new PointF(anchor.X + 20f, anchor.Y));
-					list.Add(new PointF(anchor.X + 20f, pt.Y));
-					list.Add(new PointF(pt.X, pt.Y));
-				}
-				else
-				{
-					list.Add(new PointF(pt.X, anchor.Y));
-					list.Add(new PointF(pt.X, pt.Y));
-				}
-				list.Reverse();
-				GraphicsPath graphicsPath = GH_GDI_Util.FilletPolyline(list.ToArray(), 20f);
-				g.DrawPath(pen, graphicsPath);
-				graphicsPath.Dispose();
-			}
-			pen.Dispose();
 		}
 	}
 }

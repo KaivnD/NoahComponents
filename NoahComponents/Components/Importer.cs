@@ -3,41 +3,23 @@ using System.IO;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Rhino.Runtime;
-using Newtonsoft.Json;
-using System.Xml;
-using Formatting = Newtonsoft.Json.Formatting;
 using Newtonsoft.Json.Linq;
 using System.Drawing;
+using GH_IO.Serialization;
+using Grasshopper.Kernel.Data;
+using Grasshopper.Kernel.Parameters;
 
 namespace Noah.Components
 {
-    public class Importer : GH_Param<IGH_Goo>
+    public class Importer : GH_Component
     {
-        private string NOAH_PROJECT = "";
-        private int NOAH_GENERATOR = 0;
-        private JObject ProjectInfo = null;
-        public Importer() : base(new GH_InstanceDescription("Importer", string.Empty, "进口数据", "Noah", "Utils"))
+        public Importer() : base("Importer", string.Empty, "进口数据", "Noah", "Utils")
         {
             base.ObjectChanged += ObjectChangedHandler;
         }
 
-        private void ProjectFileChanged(string filename)
-        {
-            ProjectInfo = JObject.Parse(File.ReadAllText(NOAH_PROJECT));
-            //ExpireSolution(true);
-        }
-
         protected override Bitmap Icon => Properties.Resources.getvar;
         public override Guid ComponentGuid => new Guid("C7960BD2-930A-4E27-B197-B09C5DD6CD2D");
-        public override void CreateAttributes()
-        {
-            m_attributes = new ImporterAttr(this);
-        }
-
-        protected override IGH_Goo InstantiateT()
-        {
-            return new GH_ObjectWrapper(null);
-        }
         /// <summary>
         /// Key发生变化时，重新获取数据
         /// </summary>
@@ -48,100 +30,74 @@ namespace Noah.Components
             ExpireSolution(true);
         }
 
-        public override void AddedToDocument(GH_Document document)
+        protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            PythonScript script = PythonScript.Create();
+            Param_FilePath param_FilePath = new Param_FilePath();
+            param_FilePath.FileFilter = "Noah Data (*.noahdata)|*.noahdata";
+            param_FilePath.ExpireOnFileEvent = true;
+            pManager.AddParameter(param_FilePath, "Path", "P", "Data位置", GH_ParamAccess.item);
+        }
+
+        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
+        {
+            pManager.AddGenericParameter("Data", "D", "", GH_ParamAccess.tree);
+        }
+
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {            
+            DA.DisableGapLogic();
+            string SourceFile = "";
+            DA.GetData(0, ref SourceFile);
+            if (string.IsNullOrWhiteSpace(SourceFile))
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No source file has been specified.");
+                return;
+            }
+            if (!File.Exists(SourceFile))
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Source file location doesn't exist: " + SourceFile);
+                return;
+            }
+            byte[] array;
             try
             {
-                script.ExecuteScript("import scriptcontext as sc\nV=sc.sticky['NOAH_PROJECT']\nN=int(sc.sticky['NOAH_GENERATOR'])");
-                NOAH_PROJECT = (string)script.GetVariable("V");
-                NOAH_GENERATOR = (int)script.GetVariable("N");
-                if (File.Exists(NOAH_PROJECT))
+                array = File.ReadAllBytes(SourceFile);
+            }
+            catch (Exception ex)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                return;
+            }
+            GH_LooseChunk val = new GH_LooseChunk("Grasshopper Data");
+            val.Deserialize_Binary(array);
+            if (val.ItemCount == 0)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Source data file is corrupt.");
+                return;
+            }
+
+            GH_Structure<IGH_Goo> gH_Structure = new GH_Structure<IGH_Goo>();
+            GH_IReader val2 = val.FindChunk("Block", 0);
+            if (val2 == null)
+            {
+                base.Params.Output[0].NickName = "?";
+                DA.SetDataTree(0, gH_Structure);
+            }
+            bool boolean = val2.GetBoolean("Empty");
+
+            if (!boolean)
+            {
+                GH_IReader val3 = val2.FindChunk("Data");
+                if (val3 == null)
                 {
-                    GH_FileWatcher.CreateFileWatcher(NOAH_PROJECT, GH_FileWatcherEvents.All, new GH_FileWatcher.FileChangedSimple(ProjectFileChanged));
-                    ProjectInfo = JObject.Parse(File.ReadAllText(NOAH_PROJECT));
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Source file is corrupt.");
+                }
+                else if (!gH_Structure.Read(val3))
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Data could not be deserialized.");
                 }
             }
-            catch
-            {
-
-            }
-        }
-
-        protected override void OnVolatileDataCollected()
-        {            
-            m_data.Clear();
-            if (ProjectInfo != null)
-            {
-                JArray generators = JArray.Parse(ProjectInfo["generators"].ToString());
-                var generator = generators[NOAH_GENERATOR];
-                string value = null;
-                JArray inputs = (JArray)generator["input"];
-
-                if (NickName.StartsWith("@") && NickName.Length >= 3)
-                {
-                    try
-                    {
-                        int col = NickName[1].ToString()[0] - 'A';
-                        int row = Convert.ToInt32(NickName.PadLeft(2).Remove(0, 2));
-                        JArray table = (JArray)generator["table"];
-                        JArray tableRow = (JArray)table[row];
-                        value = tableRow[col].ToString();
-                    } catch (Exception ex)
-                    {
-                        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
-                    }
-                }
-                else
-                {                    
-                    for (int i = 0; i < inputs.Count; i++)
-                    {
-                        if (inputs[i]["name"].ToString() == NickName)
-                        {
-                            value = inputs[i]["value"].ToString();
-                            break;
-                        }
-                    }
-                }
-
-                GH_Number castNumber = null;
-                GH_String castString = null;
-                if (GH_Convert.ToGHNumber(value, GH_Conversion.Both, ref castNumber))
-                {
-                    m_data.Append(new GH_ObjectWrapper(castNumber));
-                }
-                else if (GH_Convert.ToGHString(value, GH_Conversion.Both, ref castString))
-                {
-                    m_data.Append(new GH_ObjectWrapper(castString));
-                }
-                else
-                {
-                    m_data.Append(null);
-                }
-                //if (SourceCount == 1)
-                //{
-                //    int inputIdx = -1;
-                //    for (int i = 0; i < inputs.Count; i++)
-                //    {
-                //        if (inputs[i]["name"].ToString() == NickName)
-                //        {
-                //            inputIdx = i;
-                //            break;
-                //        }
-                //    }
-                //    if (inputIdx >= 0)
-                //    {
-                //        ProjectInfo["generators"][NOAH_GENERATOR]["input"][inputIdx]["value"] = Sources[0].VolatileData.get_Branch(0)[0].ToString();
-                //        File.WriteAllText(NOAH_PROJECT, JsonConvert.SerializeObject(ProjectInfo, Formatting.Indented));
-                //    }
-                //    Sources[0].NickName = NickName;
-                //}
-            } else m_data.Append(null);
-        }
-
-        protected override void ValuesChanged()
-        {
-            base.ValuesChanged();
+            DA.SetDataTree(0, gH_Structure);
         }
 
         public override GH_Exposure Exposure => GH_Exposure.secondary;
