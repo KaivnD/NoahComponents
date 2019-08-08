@@ -25,7 +25,8 @@ namespace Noah.Components
             None = 0,
             Rhino = 1,
             Text = 2,
-            Data = 3
+            Data = 3,
+            CSV = 4
         }
         private string NOAH_PROJECT { get; set; }
         private string TASK_TICKET { get; set; }
@@ -202,6 +203,26 @@ namespace Noah.Components
                         exported = true;
                     }
                     break;
+                case ExportMode.CSV:
+                    fileName = Convert.ToString(outIndex) + ".csv";
+                    filePath = Path.Combine(outDir, fileName);
+                    List<object> oList = new List<object>();
+                    List<string> sList = new List<string>();
+                    DA.GetDataList(0, oList);
+                    oList.ForEach(el =>
+                    {
+                        string tmp = "";
+                        GH_Convert.ToString(el, out tmp, GH_Conversion.Both);
+                        sList.Add(tmp);
+                    });
+                    File.WriteAllText(filePath, string.Join(Environment.NewLine, sList));
+                    if (!exported)
+                    {
+                        ProjectInfo["generators"][NOAH_GENERATOR]["output"][outIndex]["value"] = filePath;
+                        File.WriteAllText(NOAH_PROJECT, JsonConvert.SerializeObject(ProjectInfo, Formatting.Indented));
+                        exported = true;
+                    }
+                    break;
             }
         }
 
@@ -315,6 +336,20 @@ namespace Noah.Components
             }, true, m_mode == ExportMode.Data);
             toolStripMenuItem3.ToolTipText =
                 "将E端输入的内容写到NOAH包输出端" + Environment.NewLine + "数据结构将在导入数据的时候被还原";
+
+            ToolStripMenuItem toolStripMenuItem4 = Menu_AppendItem(
+                menu, "CSV", (object sender, EventArgs e) =>
+                {
+                    if (m_mode != ExportMode.CSV)
+                    {
+                        RecordUndoEvent("CSV");
+                        m_mode = ExportMode.CSV;
+                        UpdateMessage();
+                        ExpireSolution(recompute: true);
+                    }
+                }, true, m_mode == ExportMode.CSV);
+            toolStripMenuItem4.ToolTipText =
+                "将E端输入的内容写到NOAH包输出端" + Environment.NewLine + "数据将被保存为CSV格式";
         }
 
         public override bool Write(GH_IWriter writer)
@@ -348,6 +383,11 @@ namespace Noah.Components
                     Message = "Text";
                     Params.Input[0].Access = GH_ParamAccess.item;
                     Params.Input[0].DataMapping = GH_DataMapping.None;
+                    break;
+                case ExportMode.CSV:
+                    Message = "CSV";
+                    Params.Input[0].Access = GH_ParamAccess.list;
+                    Params.Input[0].DataMapping = GH_DataMapping.Flatten;
                     break;
             }
         }
