@@ -80,6 +80,7 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <Compile Include="Utils\File3dmWriter.cs" />
     <Compile Include="Utils\ObjectLayerInfo.cs" />
     <Compile Include="Utils\San.cs" />
   </ItemGroup>

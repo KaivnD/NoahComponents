@@ -106,42 +106,19 @@ namespace Noah.Components
                 case ExportMode.Rhino:
                     string fileName = Convert.ToString(outIndex) + ".3dm";
                     string filePath = Path.Combine(outDir, fileName);
+
+                    File3dmWriter writer = new File3dmWriter(filePath);
+                    List<int> ll = new List<int>();
                     List<ObjectLayerInfo> layeredObj = new List<ObjectLayerInfo>();
                     DA.GetDataList(0, layeredObj);
-                    File3dm f = null;
-                    if (File.Exists(filePath))
-                    {
-                        try
-                        {
-                            f = File3dm.Read(filePath);
-                            f.Objects.Clear();
-                        }
-                        catch (Exception ex)
-                        {
-                            AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
-                        }
-                    }
-                    else
-                    {
-                        f = new File3dm();
-                    }
-
-                    List<int> ll = new List<int>();
                     layeredObj.ForEach(x =>
                     {
-                        if (getLayerIndex(x, f) < 0)
-                        {
-                            Layer l = new Layer();
-                            l.Name = x.Name;
-                            l.Color = x.Color;
-                            f.AllLayers.Add(l);
-                        }
-                        ll.Add(getLayerIndex(x, f));
+                        writer.ChildLayerSolution(x.Name);
+                        ll.Add(writer.CreateLayer(x.Name, x.Color));
                     });
-
                     if (layeredObj.Count > 0)
                     {
-                        writeRhino3dm(f, filePath, layeredObj, ll);
+                        writer.Write(layeredObj, ll);
                         if (!exported)
                         {
                             ProjectInfo["generators"][NOAH_GENERATOR]["output"][outIndex]["value"] = filePath;
@@ -269,6 +246,7 @@ namespace Noah.Components
 
         private static int getLayerIndex (ObjectLayerInfo li, File3dm f)
         {
+            File3dmLayerTable layers =  f.AllLayers;
             if (li.Name.Contains(Layer.PathSeparator))
             {
                 foreach (Layer l in f.AllLayers)
