@@ -30,6 +30,7 @@ namespace Noah.Components
         }
         private string NOAH_PROJECT { get; set; }
         private string TASK_TICKET { get; set; }
+        private string UUID { get; set; }
         private int NOAH_GENERATOR = 0;
         private JObject ProjectInfo = null;
         private bool exported = false;
@@ -76,13 +77,14 @@ namespace Noah.Components
             string outDir = "";
             try
             {
-                script.ExecuteScript("import scriptcontext as sc\nV=sc.sticky['NOAH_PROJECT']\nT=sc.sticky['TASK_TICKET']\nG=int(sc.sticky['NOAH_GENERATOR'])");
+                script.ExecuteScript("import scriptcontext as sc\nV=sc.sticky['NOAH_PROJECT']\nT=sc.sticky['TASK_TICKET']\nG=int(sc.sticky['NOAH_GENERATOR'])\nID=sc.sticky['UUID']");
                 NOAH_PROJECT = (string)script.GetVariable("V");
                 TASK_TICKET = (string)script.GetVariable("T");
                 NOAH_GENERATOR = (int)script.GetVariable("G");
+                UUID = (string)script.GetVariable("ID");
                 if (File.Exists(NOAH_PROJECT))
                 {
-                    outDir = Path.Combine(Path.GetDirectoryName(NOAH_PROJECT), ".noah", "tasks", TASK_TICKET, "out");
+                    outDir = Path.Combine(Path.GetDirectoryName(NOAH_PROJECT), ".noah", "tasks", UUID, TASK_TICKET, "out");
                     ProjectInfo = JObject.Parse(File.ReadAllText(NOAH_PROJECT));
                 }
             }
