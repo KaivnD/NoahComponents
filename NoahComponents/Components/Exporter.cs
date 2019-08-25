@@ -42,12 +42,12 @@ namespace Noah.Components
         {
             m_mode = ExportMode.Rhino;
             UpdateMessage();
-            SolutionExpired += SolutionExpiredHandler;
             ObjectChanged += ObjectChangedHandler;
         }
 
-        private void SolutionExpiredHandler(IGH_DocumentObject sender, GH_SolutionExpiredEventArgs e)
+        protected override void ValuesChanged()
         {
+            base.ValuesChanged();
             exported = false;
         }
 
@@ -66,7 +66,6 @@ namespace Noah.Components
 
         private void ObjectChangedHandler(IGH_DocumentObject sender, GH_ObjectChangedEventArgs e)
         {
-            exported = false;
             ExpireSolution(true);
         }
 
@@ -88,9 +87,9 @@ namespace Noah.Components
                     ProjectInfo = JObject.Parse(File.ReadAllText(NOAH_PROJECT));
                 }
             }
-            catch
+            catch(Exception ex)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "出口功能需要从客户端启动才能运行");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, ex.Message);
             }
             int outIndex = 0;
             DA.GetData(1, ref outIndex);
