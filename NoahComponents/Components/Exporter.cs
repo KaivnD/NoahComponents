@@ -31,8 +31,10 @@ namespace Noah.Components
         private string NOAH_PROJECT { get; set; }
         private string TASK_TICKET { get; set; }
         private string UUID { get; set; }
-        private int NOAH_GENERATOR = 0;
+        private string NOAH_GENERATOR { get; set; }
         private JObject ProjectInfo = null;
+        private JObject Generator = null;
+        private int GeneratorIndex = -1;
         private bool exported = false;
 
         protected override Bitmap Icon => Properties.Resources.setvar;
@@ -76,15 +78,17 @@ namespace Noah.Components
             string outDir = "";
             try
             {
-                script.ExecuteScript("import scriptcontext as sc\nV=sc.sticky['NOAH_PROJECT']\nT=sc.sticky['TASK_TICKET']\nG=int(sc.sticky['NOAH_GENERATOR'])\nID=sc.sticky['UUID']");
+                script.ExecuteScript("import scriptcontext as sc\nV=sc.sticky['NOAH_PROJECT']\nT=sc.sticky['TASK_TICKET']\nG=sc.sticky['NOAH_GENERATOR']\nID=sc.sticky['UUID']");
                 NOAH_PROJECT = (string)script.GetVariable("V");
                 TASK_TICKET = (string)script.GetVariable("T");
-                NOAH_GENERATOR = (int)script.GetVariable("G");
+                NOAH_GENERATOR = (string)script.GetVariable("G");
                 UUID = (string)script.GetVariable("ID");
                 if (File.Exists(NOAH_PROJECT))
                 {
                     outDir = Path.Combine(Path.GetDirectoryName(NOAH_PROJECT), ".noah", "tasks", UUID, TASK_TICKET, "out");
                     ProjectInfo = JObject.Parse(File.ReadAllText(NOAH_PROJECT));
+                    JArray generators = JArray.Parse(ProjectInfo["generators"].ToString());
+                    FindJobjectFromJArray(generators, NOAH_GENERATOR, out Generator, out GeneratorIndex);
                 }
             }
             catch(Exception ex)
@@ -94,7 +98,7 @@ namespace Noah.Components
             int outIndex = 0;
             DA.GetData(1, ref outIndex);
 
-            JArray output = JArray.Parse(ProjectInfo["generators"][NOAH_GENERATOR]["output"].ToString());
+            JArray output = JArray.Parse(Generator["output"].ToString());
             if (outIndex >= output.Count)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "定义时未指定此输出端口");
@@ -122,7 +126,7 @@ namespace Noah.Components
                         writer.Write(layeredObj, ll);
                         if (!exported)
                         {
-                            ProjectInfo["generators"][NOAH_GENERATOR]["output"][outIndex]["value"] = filePath;
+                            ProjectInfo["generators"][GeneratorIndex]["output"][outIndex]["value"] = filePath;
                             File.WriteAllText(NOAH_PROJECT, JsonConvert.SerializeObject(ProjectInfo, Formatting.Indented));
                             exported = true;
                         }
@@ -134,7 +138,7 @@ namespace Noah.Components
                     {
                         string outputData = "";
                         DA.GetData(0, ref outputData);
-                        ProjectInfo["generators"][NOAH_GENERATOR]["output"][outIndex]["value"] = outputData;
+                        ProjectInfo["generators"][GeneratorIndex]["output"][outIndex]["value"] = outputData;
                         File.WriteAllText(NOAH_PROJECT, JsonConvert.SerializeObject(ProjectInfo, Formatting.Indented));
                         exported = true;
                     }
@@ -176,7 +180,7 @@ namespace Noah.Components
                     }
                     if (!exported)
                     {
-                        ProjectInfo["generators"][NOAH_GENERATOR]["output"][outIndex]["value"] = filePath;
+                        ProjectInfo["generators"][GeneratorIndex]["output"][outIndex]["value"] = filePath;
                         File.WriteAllText(NOAH_PROJECT, JsonConvert.SerializeObject(ProjectInfo, Formatting.Indented));
                         exported = true;
                     }
@@ -196,7 +200,7 @@ namespace Noah.Components
                     File.WriteAllText(filePath, string.Join(Environment.NewLine, sList));
                     if (!exported)
                     {
-                        ProjectInfo["generators"][NOAH_GENERATOR]["output"][outIndex]["value"] = filePath;
+                        ProjectInfo["generators"][GeneratorIndex]["output"][outIndex]["value"] = filePath;
                         File.WriteAllText(NOAH_PROJECT, JsonConvert.SerializeObject(ProjectInfo, Formatting.Indented));
                         exported = true;
                     }
@@ -369,6 +373,23 @@ namespace Noah.Components
                     Params.Input[0].DataMapping = GH_DataMapping.Flatten;
                     break;
             }
+        }
+
+        private void FindJobjectFromJArray(JArray arr, string guid, out JObject gen, out int genIndex)
+        {
+            JObject jo = null;
+            int idx = -1;
+            for (int i = 0; i < arr.Count; i++)
+            {
+                if ((string)arr[i]["guid"] == guid)
+                {
+                    jo = (JObject)arr[i];
+                    idx = i;
+                    break;
+                }
+            }
+            gen = jo;
+            genIndex = idx;
         }
     }
 }
